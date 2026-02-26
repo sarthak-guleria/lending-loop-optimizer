@@ -1,0 +1,32 @@
+export const C = {
+  bg: "#0a0e1a",
+  panel: "#0f1524",
+  border: "#1e2a40",
+  accent: "#00d4ff",
+  green: "#00e5a0",
+  amber: "#f5a623",
+  red: "#ff4d6d",
+  muted: "#4a5568",
+  text: "#e2e8f0",
+  dim: "#7a8ba0",
+};
+
+export const DEFAULT_CONFIG = {
+  strategyName: "sUSDe Loop → GHO Exit",
+  loopChain: "Mantle",
+  collateralAsset: "sUSDe",
+  borrowAsset: "USDC",
+  exitChain: "Mantle",
+  exitAsset: "GHO",
+  collateralSupplyApy: 3.50,
+  borrowApy: 2.50,
+  exitSupplyApy: 7.03,
+  maxLtv: 90,
+  safetyBuffer: 10,
+  capital: 10000,
+  benchmarkApy: 7.03,
+  benchmarkLabel: "GHO Direct Supply",
+  stressCollateral: 24400,
+  stressDebt: 14400,
+  stressLiqThreshold: 92,
+};

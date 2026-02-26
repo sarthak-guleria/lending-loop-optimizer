@@ -1,231 +1,37 @@
-import { useState, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer } from "recharts";
+import { useState, useMemo, useEffect } from "react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ReferenceLine, ResponsiveContainer,
+} from "recharts";
+import { C, DEFAULT_CONFIG } from "./constants.js";
+import { computeLoops, computeRating, exportCsv } from "./computations.js";
+import { PRESETS } from "./presets.js";
+import { useUrlState } from "./hooks/useUrlState.js";
+import Slider from "./components/Slider.jsx";
+import StatCard from "./components/StatCard.jsx";
+import NumberInput from "./components/NumberInput.jsx";
+import DollarInput from "./components/DollarInput.jsx";
+import CapitalInput from "./components/CapitalInput.jsx";
+import TextInput from "./components/TextInput.jsx";
+import CustomTooltip from "./components/CustomTooltip.jsx";
 
-const C = {
-  bg: "#0a0e1a", panel: "#0f1524", border: "#1e2a40",
-  accent: "#00d4ff", green: "#00e5a0", amber: "#f5a623",
-  red: "#ff4d6d", muted: "#4a5568", text: "#e2e8f0", dim: "#7a8ba0",
-};
-
-const DEFAULT_CONFIG = {
-  strategyName: "sUSDe Loop → GHO Exit",
-  loopChain: "Mantle", collateralAsset: "sUSDe", borrowAsset: "USDC",
-  exitChain: "Mantle", exitAsset: "GHO",
-  collateralSupplyApy: 3.50, borrowApy: 2.50, exitSupplyApy: 7.03,
-  maxLtv: 90, safetyBuffer: 10,
-  capital: 10000,
-  benchmarkApy: 7.03, benchmarkLabel: "GHO Direct Supply",
-  stressCollateral: 24400, stressDebt: 14400, stressLiqThreshold: 92,
-};
-
-function computeRating(cfg) {
-  const spread = cfg.collateralSupplyApy - cfg.borrowApy;
-  const safeLtv = cfg.maxLtv - cfg.safetyBuffer;
-  const isStable = n => ["usd","dai","gho","usdc","usdt","usde","susde","eurc","frax","lusd"].some(s => n.toLowerCase().includes(s));
-  const factors = [
-    { label: "Collateral Quality", score: isStable(cfg.collateralAsset) ? 2 : 3,
-      desc: isStable(cfg.collateralAsset) ? `${cfg.collateralAsset} — yield-bearing stablecoin; depeg risk during stress` : `${cfg.collateralAsset} — non-stable, subject to price swings` },
-    { label: "Yield Source Stability", score: cfg.exitSupplyApy > 12 ? 4 : cfg.exitSupplyApy > 8 ? 3 : cfg.exitSupplyApy > 5 ? 2 : 1,
-      desc: cfg.exitSupplyApy > 8 ? `${cfg.exitAsset} at ${cfg.exitSupplyApy}% — incentive-driven, variable` : `${cfg.exitAsset} at ${cfg.exitSupplyApy}% — moderate, partially incentive-driven` },
-    { label: "Borrow Spread", score: spread > 3 ? 1 : spread > 1.5 ? 2 : spread > 0.5 ? 3 : 4,
-      desc: `${cfg.collateralSupplyApy}% supply − ${cfg.borrowApy}% borrow = ${spread.toFixed(2)}% net spread per loop` },
-    { label: "Liquidation Risk", score: safeLtv > 85 ? 4 : safeLtv > 75 ? 3 : safeLtv > 65 ? 2 : 1,
-      desc: `Safe LTV ${safeLtv}% — ${safeLtv > 80 ? "thin margin, cascade risk at high loop count" : "adequate buffer"}` },
-    { label: "Smart Contract Risk", score: cfg.loopChain === cfg.exitChain ? 2 : 3,
-      desc: cfg.loopChain === cfg.exitChain ? `Single chain (${cfg.loopChain}) — no bridge exposure` : `Cross-chain (${cfg.loopChain} → ${cfg.exitChain}) — bridge risk` },
-    { label: "Unwind Ease", score: cfg.loopChain === cfg.exitChain ? 2 : 3,
-      desc: cfg.loopChain === cfg.exitChain ? "Same chain — repay loops in sequence" : `Must bridge back ${cfg.exitChain} → ${cfg.loopChain} to unwind` },
-  ];
-  const avg = factors.reduce((s, f) => s + f.score, 0) / factors.length;
-  const BANDS = [
-    { max: 1.5, rating: "Aa2", color: C.green, desc: "High quality · Low credit risk" },
-    { max: 2.0, rating: "Baa1", color: C.accent, desc: "Investment grade · Moderate risk" },
-    { max: 2.5, rating: "Baa3", color: C.accent, desc: "Investment grade · Some speculative elements" },
-    { max: 3.0, rating: "Ba2", color: C.amber, desc: "Speculative grade · Substantial risk" },
-    { max: 3.5, rating: "Ba3", color: C.amber, desc: "Speculative · High vulnerability" },
-    { max: 4.0, rating: "B2", color: C.red, desc: "Speculative · Subject to high risk" },
-  ];
-  const SL = ["", "Aa3", "Baa2", "Ba2", "B2"];
-  const SC = ["", C.green, C.accent, C.amber, C.red];
-  const band = BANDS.find(b => avg <= b.max) || BANDS[BANDS.length - 1];
-  return { factors: factors.map(f => ({ ...f, rating: SL[f.score], color: SC[f.score] })), overall: band.rating, overallColor: band.color, overallDesc: band.desc };
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, [breakpoint]);
+  return isMobile;
 }
-
-function computeLoops(cfg) {
-  const { capital, collateralSupplyApy, borrowApy, exitSupplyApy, maxLtv, safetyBuffer } = cfg;
-  const safeLtv = Math.max(0, maxLtv - safetyBuffer) / 100;
-  return Array.from({ length: 11 }, (_, loops) => {
-    let totalSupplied, totalBorrowed;
-    if (safeLtv >= 1) { totalSupplied = capital * (loops + 1); totalBorrowed = capital * loops; }
-    else { totalSupplied = capital * (1 - Math.pow(safeLtv, loops + 1)) / (1 - safeLtv); totalBorrowed = totalSupplied - capital; }
-    const lastBorrow = loops > 0 ? capital * Math.pow(safeLtv, loops) : 0;
-    const supplyIncome = (totalSupplied - lastBorrow) * (collateralSupplyApy / 100) + lastBorrow * (exitSupplyApy / 100);
-    const borrowCost = totalBorrowed * (borrowApy / 100);
-    const netApy = ((supplyIncome - borrowCost) / capital) * 100;
-    return { loops, netApy: +netApy.toFixed(3), totalSupplied: +totalSupplied.toFixed(2), totalBorrowed: +totalBorrowed.toFixed(2), safeLtvUsed: +(safeLtv * 100).toFixed(1), lastBorrow: +lastBorrow.toFixed(2) };
-  });
-}
-
-function Slider({ label, value, onChange, min, max, step = 1, unit = "%" }) {
-  return (
-    <div style={{ marginBottom: 13 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 11, color: C.dim, letterSpacing: "0.07em", textTransform: "uppercase" }}>{label}</span>
-        <span style={{ fontSize: 13, color: C.accent, fontFamily: "monospace", fontWeight: 700 }}>{value}{unit}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        style={{ width: "100%", accentColor: C.accent, cursor: "pointer" }} />
-    </div>
-  );
-}
-
-function TextInput({ label, value, onChange, placeholder }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
-      <input type="text" value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)}
-        style={{ width: "100%", background: C.bg, border: "1px solid " + C.border, borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 12, fontFamily: "monospace", outline: "none", boxSizing: "border-box" }} />
-    </div>
-  );
-}
-
-function NumberInput({ label, value, onChange, hint }) {
-  const [raw, setRaw] = useState(String(value));
-  const [focused, setFocused] = useState(false);
-
-  const handleChange = (e) => {
-    const v = e.target.value;
-    const isValid = v === "" || v === "." || v.split(".").length <= 2 && v.replace(".", "").split("").every(c => c >= "0" && c <= "9");
-    if (isValid) {
-      setRaw(v);
-      const num = parseFloat(v);
-      if (!isNaN(num) && num >= 0 && num <= 200) onChange(num);
-    }
-  };
-
-  const handleBlur = () => {
-    setFocused(false);
-    const num = parseFloat(raw);
-    if (isNaN(num) || num < 0) { setRaw("0"); onChange(0); }
-    else if (num > 200) { setRaw("200"); onChange(200); }
-    else setRaw(String(num));
-  };
-
-  return (
-    <div style={{ marginBottom: 13 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <span style={{ fontSize: 11, color: C.dim, letterSpacing: "0.07em", textTransform: "uppercase" }}>{label}</span>
-        {hint && !focused && <span style={{ fontSize: 9, color: C.muted, fontStyle: "italic", maxWidth: 120, textAlign: "right" }}>{hint}</span>}
-      </div>
-      <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-        <input type="text" inputMode="decimal"
-          value={focused ? raw : String(value)}
-          onChange={handleChange}
-          onFocus={() => { setFocused(true); setRaw(String(value)); }}
-          onBlur={handleBlur}
-          style={{ width: "100%", background: C.bg, border: "1px solid " + (focused ? C.accent : C.border), borderRadius: 6, padding: "7px 36px 7px 10px", color: C.accent, fontSize: 14, fontFamily: "monospace", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
-        <span style={{ position: "absolute", right: 10, fontSize: 13, color: C.dim, pointerEvents: "none" }}>%</span>
-      </div>
-    </div>
-  );
-}
-
-function DollarInput({ label, value, onChange, hint }) {
-  const [raw, setRaw] = useState(String(value));
-  const [focused, setFocused] = useState(false);
-
-  const handleChange = (e) => {
-    const v = e.target.value.replace(/[^0-9.]/g, "");
-    setRaw(v);
-    const n = parseFloat(v);
-    if (!isNaN(n) && n >= 0) onChange(n);
-  };
-
-  const handleBlur = () => {
-    setFocused(false);
-    const n = parseFloat(raw);
-    if (isNaN(n) || n < 0) { setRaw("0"); onChange(0); }
-    else setRaw(String(n));
-  };
-
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 10, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</span>
-        {hint && <span style={{ fontSize: 9, color: C.muted, fontStyle: "italic" }}>{hint}</span>}
-      </div>
-      <div style={{ position: "relative" }}>
-        <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim, fontSize: 13, pointerEvents: "none" }}>$</span>
-        <input type="text" inputMode="decimal"
-          value={focused ? raw : Number(value).toLocaleString()}
-          onChange={handleChange}
-          onFocus={() => { setFocused(true); setRaw(String(value)); }}
-          onBlur={handleBlur}
-          style={{ width: "100%", background: C.bg, border: "1px solid " + (focused ? C.accent : C.border), borderRadius: 6, padding: "7px 10px 7px 24px", color: C.accent, fontSize: 14, fontFamily: "monospace", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
-      </div>
-    </div>
-  );
-}
-
-function CapitalInput({ value, onChange }) {
-  const [raw, setRaw] = useState(String(value));
-  const [focused, setFocused] = useState(false);
-  const parse = v => { const n = parseFloat(v.replace(/,/g, "")); return isNaN(n) ? null : Math.max(1, n); };
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <span style={{ fontSize: 11, color: C.dim, letterSpacing: "0.07em", textTransform: "uppercase" }}>Starting Capital</span>
-        <span style={{ fontSize: 10, color: C.muted }}>no max</span>
-      </div>
-      <input type="text" inputMode="decimal"
-        value={focused ? raw : "$" + Number(value).toLocaleString()}
-        onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setRaw(v); const n = parse(v); if (n !== null) onChange(n); }}
-        onFocus={() => { setFocused(true); setRaw(String(value)); }}
-        onBlur={() => { setFocused(false); const n = parse(raw); if (!n) { setRaw("500"); onChange(500); } else { setRaw(n.toLocaleString()); onChange(n); } }}
-        style={{ width: "100%", background: C.bg, border: "1px solid " + (focused ? C.amber : C.border), borderRadius: 6, padding: "9px 12px", color: C.amber, fontSize: 18, fontFamily: "monospace", fontWeight: 800, outline: "none", boxSizing: "border-box" }} />
-      <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-        {[500, 1000, 2600, 5000, 10000, 50000].map(v => (
-          <button key={v} onClick={() => { onChange(v); setRaw(String(v)); }}
-            style={{ background: value === v ? C.amber + "22" : C.bg, border: "1px solid " + (value === v ? C.amber : C.border), borderRadius: 5, padding: "3px 8px", fontSize: 10, color: value === v ? C.amber : C.dim, cursor: "pointer", fontFamily: "monospace", fontWeight: 600 }}>
-            ${v >= 1000 ? (v / 1000) + "k" : v}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, sub, color = C.green }) {
-  return (
-    <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: "14px 18px", flex: 1, minWidth: 130 }}>
-      <div style={{ fontSize: 10, color: C.dim, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: "monospace" }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{sub}</div>}
-    </div>
-  );
-}
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload || !payload.length) return null;
-  return (
-    <div style={{ background: "#0d1629", border: "1px solid " + C.border, borderRadius: 8, padding: "12px 16px", fontSize: 12 }}>
-      <div style={{ color: C.dim, marginBottom: 8, fontWeight: 600 }}>Loop #{label}</div>
-      {payload.map((p, i) => (
-        <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 24, marginBottom: 4 }}>
-          <span style={{ color: p.color }}>{p.name}</span>
-          <span style={{ fontFamily: "monospace", fontWeight: 700, color: p.color }}>{p.value && p.value.toFixed(2)}%</span>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 export default function App() {
-  const [cfg, setCfg] = useState(DEFAULT_CONFIG);
+  const [cfg, setCfg] = useUrlState(DEFAULT_CONFIG);
   const set = k => v => setCfg(prev => ({ ...prev, [k]: v }));
   const setStr = k => v => setCfg(prev => ({ ...prev, [k]: v }));
   const [selectedLoops, setSelectedLoops] = useState(3);
+  const [copied, setCopied] = useState(false);
+  const isMobile = useIsMobile();
 
   const loopData = useMemo(() => computeLoops(cfg), [cfg]);
   const rating = useMemo(() => computeRating(cfg), [cfg]);
@@ -255,18 +61,66 @@ export default function App() {
   const liqDropPct = cfg.stressDebt > 0 ? +((1 - cfg.stressDebt / (cfg.stressCollateral * liqThresh)) * 100).toFixed(2) : 0;
   const depegLevels = [0, -1, -2, -3, -5, -7, -10, -15, -20, -25, -30];
 
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const loadPreset = (preset) => {
+    setCfg(preset.config);
+    setSelectedLoops(3);
+  };
+
+  const actionBtn = (label, onClick, activeColor) => (
+    <button onClick={onClick} style={{
+      background: C.bg, border: "1px solid " + (activeColor || C.border),
+      borderRadius: 6, padding: "6px 14px", fontSize: 11,
+      color: activeColor || C.dim, cursor: "pointer", fontFamily: "monospace", fontWeight: 600,
+    }}>{label}</button>
+  );
+
   return (
-    <div style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", background: C.bg, minHeight: "100vh", color: C.text, padding: "28px 20px" }}>
+    <div style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", background: C.bg, minHeight: "100vh", color: C.text, padding: isMobile ? "16px 12px" : "28px 20px" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.accent, boxShadow: "0 0 10px " + C.accent }} />
-            <span style={{ fontSize: 11, color: C.accent, letterSpacing: "0.2em", textTransform: "uppercase" }}>{cfg.loopChain} · Lending Loop Optimizer</span>
+        <div style={{ marginBottom: 16, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.accent, boxShadow: "0 0 10px " + C.accent }} />
+              <span style={{ fontSize: 11, color: C.accent, letterSpacing: "0.2em", textTransform: "uppercase" }}>{cfg.loopChain} · Lending Loop Optimizer</span>
+            </div>
+            <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 900, margin: 0, letterSpacing: "-0.02em" }}>{cfg.strategyName}</h1>
+            <p style={{ color: C.dim, fontSize: 12, margin: "5px 0 0" }}>
+              Beat {cfg.benchmarkApy}% {cfg.benchmarkLabel} · Adjust parameters to find peak efficiency
+            </p>
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: "-0.02em" }}>{cfg.strategyName}</h1>
-          <p style={{ color: C.dim, fontSize: 12, margin: "5px 0 0" }}>Beat {cfg.benchmarkApy}% {cfg.benchmarkLabel} · Adjust parameters to find peak efficiency</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <button onClick={handleCopyLink} style={{
+              background: copied ? C.green + "22" : C.bg,
+              border: "1px solid " + (copied ? C.green : C.border),
+              borderRadius: 6, padding: "6px 14px", fontSize: 11,
+              color: copied ? C.green : C.dim, cursor: "pointer", fontFamily: "monospace", fontWeight: 600,
+            }}>{copied ? "✓ Copied!" : "⎘ Share Link"}</button>
+            {actionBtn("↓ Export CSV", () => exportCsv(loopData, cfg))}
+            {actionBtn("↺ Reset", () => { setCfg(DEFAULT_CONFIG); setSelectedLoops(3); })}
+          </div>
+        </div>
+
+        {/* Preset bar */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase" }}>Presets:</span>
+          {PRESETS.map(p => (
+            <button key={p.name} onClick={() => loadPreset(p)} style={{
+              background: cfg.strategyName === p.config.strategyName ? C.accent + "22" : C.bg,
+              border: "1px solid " + (cfg.strategyName === p.config.strategyName ? C.accent : C.border),
+              borderRadius: 6, padding: "4px 12px", fontSize: 11,
+              color: cfg.strategyName === p.config.strategyName ? C.accent : C.dim,
+              cursor: "pointer", fontFamily: "monospace", fontWeight: 600,
+            }}>{p.name}</button>
+          ))}
         </div>
 
         {/* Stat cards */}
@@ -286,20 +140,22 @@ export default function App() {
         {/* Loop selector + dollar breakdown */}
         <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-            <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase" }}>Loop Selector · Pin a depth to see exact dollar breakdown</div>
+            <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              Loop Selector · Pin a depth to see exact dollar breakdown
+            </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {loopData.map(d => (
-                <button key={d.loops} onClick={() => setSelectedLoops(d.loops)}
-                  style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
-                    background: selectedLoops === d.loops ? C.green + "22" : C.bg,
-                    border: "1px solid " + (selectedLoops === d.loops ? C.green : C.border),
-                    color: selectedLoops === d.loops ? C.green : C.dim }}>
-                  {d.loops}{d.loops === optimalLoop.loops ? "★" : ""}
-                </button>
+                <button key={d.loops} onClick={() => setSelectedLoops(d.loops)} style={{
+                  padding: "4px 10px", borderRadius: 6, fontSize: 11, fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
+                  background: selectedLoops === d.loops ? C.green + "22" : C.bg,
+                  border: "1px solid " + (selectedLoops === d.loops ? C.green : C.border),
+                  color: selectedLoops === d.loops ? C.green : C.dim,
+                }}>{d.loops}{d.loops === optimalLoop.loops ? "★" : ""}</button>
               ))}
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
+
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, 1fr)", gap: 10 }}>
             {[
               { label: cfg.collateralAsset + " Supply Income", value: "+$" + collateralIncome.toLocaleString(), sub: cfg.collateralSupplyApy + "% on $" + (selected.totalSupplied - selected.lastBorrow).toLocaleString(), color: C.green },
               { label: cfg.exitAsset + " Exit Income", value: "+$" + exitIncome.toLocaleString(), sub: cfg.exitSupplyApy + "% on $" + selected.lastBorrow.toLocaleString(), color: C.green },
@@ -332,8 +188,12 @@ export default function App() {
                   Per-Loop Borrow Guide · Safe LTV {(safeLtv * 100).toFixed(0)}% · Capital ${cfg.capital.toLocaleString()}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {steps.map((s) => (
-                    <div key={s.loop} style={{ display: "flex", alignItems: "center", gap: 10, background: C.bg, borderRadius: 7, padding: "8px 14px", border: "1px solid " + (s.loop === selectedLoops ? C.green + "66" : C.border) }}>
+                  {steps.map(s => (
+                    <div key={s.loop} style={{
+                      display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, flexWrap: isMobile ? "wrap" : "nowrap",
+                      background: C.bg, borderRadius: 7, padding: isMobile ? "6px 10px" : "8px 14px",
+                      border: "1px solid " + (s.loop === selectedLoops ? C.green + "66" : C.border),
+                    }}>
                       <div style={{ minWidth: 60, fontSize: 11, color: C.dim }}>Loop {s.loop}</div>
                       <div style={{ minWidth: 130, fontSize: 11, fontFamily: "monospace" }}>Supply <span style={{ color: C.accent }}>${s.supplied.toLocaleString()}</span></div>
                       <div style={{ fontSize: 14, color: C.dim }}>→</div>
@@ -350,9 +210,9 @@ export default function App() {
         </div>
 
         {/* Main grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", gap: 16 }}>
 
-          {/* LEFT */}
+          {/* LEFT — Config */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16 }}>
               <div style={{ fontSize: 10, color: C.accent, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12, fontWeight: 700 }}>⚙ Strategy Config</div>
@@ -388,7 +248,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* RIGHT */}
+          {/* RIGHT — Chart + Table */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: "18px 16px" }}>
               <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>
@@ -427,7 +287,7 @@ export default function App() {
                       const beats = d.netApy >= cfg.benchmarkApy;
                       const diff = d.netApy - cfg.benchmarkApy;
                       return (
-                        <tr key={d.loops} style={{ borderBottom: "1px solid " + C.border, background: isOpt ? "rgba(0,229,160,0.05)" : "transparent" }}>
+                        <tr key={d.loops} onClick={() => setSelectedLoops(d.loops)} style={{ borderBottom: "1px solid " + C.border, background: isOpt ? "rgba(0,229,160,0.05)" : "transparent", cursor: "pointer" }}>
                           <td style={{ padding: "7px 10px", textAlign: "right", color: isOpt ? C.green : C.text, fontWeight: isOpt ? 700 : 400 }}>{d.loops}{isOpt ? " ★" : ""}</td>
                           <td style={{ padding: "7px 10px", textAlign: "right", color: C.dim }}>{d.safeLtvUsed}%</td>
                           <td style={{ padding: "7px 10px", textAlign: "right", fontFamily: "monospace" }}>${d.totalSupplied.toLocaleString()}</td>
@@ -491,7 +351,7 @@ export default function App() {
             <div style={{ background: rating.overallColor + "22", border: "1px solid " + rating.overallColor, borderRadius: 6, padding: "4px 16px", fontSize: 18, fontWeight: 900, color: rating.overallColor, fontFamily: "monospace" }}>{rating.overall}</div>
           </div>
           <div style={{ fontSize: 11, color: C.dim, fontStyle: "italic", marginBottom: 16 }}>{rating.overallDesc}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8 }}>
             {rating.factors.map(f => (
               <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 10, background: C.bg, borderRadius: 7, padding: "8px 12px", border: "1px solid " + C.border }}>
                 <div style={{ minWidth: 42, fontSize: 12, fontWeight: 800, color: f.color, fontFamily: "monospace", textAlign: "center" }}>{f.rating}</div>
@@ -529,24 +389,24 @@ export default function App() {
           <div style={{ fontSize: 11, color: C.dim, marginBottom: 16, fontStyle: "italic" }}>
             Enter your actual Aave position. HF = (collateral × liq. threshold) / total debt.
           </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
             <DollarInput label="Collateral Value ($)" value={cfg.stressCollateral} onChange={set("stressCollateral")} hint="Total supplied as collateral" />
             <DollarInput label="Total Debt ($)" value={cfg.stressDebt} onChange={set("stressDebt")} hint="All borrowed assets combined" />
             <div>
               <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Liq. Threshold (%)</div>
-              <div style={{ fontSize: 9, color: C.muted, marginBottom: 6, fontStyle: "italic" }}>From Aave E-Mode (92% for sUSDe)</div>
+              <div style={{ fontSize: 9, color: C.muted, marginBottom: 6, fontStyle: "italic" }}>E-Mode liq. threshold for {cfg.collateralAsset}</div>
               <input type="text" inputMode="decimal" value={cfg.stressLiqThreshold}
                 onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) set("stressLiqThreshold")(v); }}
                 style={{ width: "100%", background: C.bg, border: "1px solid " + C.border, borderRadius: 6, padding: "7px 10px", color: C.accent, fontSize: 14, fontFamily: "monospace", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
             </div>
           </div>
 
-          {/* Current HF banner */}
-          <div style={{ background: currentHF >= 1.7 ? "rgba(0,229,160,0.07)" : currentHF >= 1.4 ? "rgba(245,166,35,0.07)" : "rgba(255,77,109,0.07)",
+          <div style={{
+            background: currentHF >= 1.7 ? "rgba(0,229,160,0.07)" : currentHF >= 1.4 ? "rgba(245,166,35,0.07)" : "rgba(255,77,109,0.07)",
             border: "1px solid " + (currentHF >= 1.7 ? C.green : currentHF >= 1.4 ? C.amber : C.red),
             borderRadius: 8, padding: "10px 16px", marginBottom: 14,
-            display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
             <div>
               <div style={{ fontSize: 12, color: C.dim }}>Current Health Factor</div>
               <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Liquidates at {liqDropPct > 0 ? "-" + liqDropPct + "% " + cfg.collateralAsset + " drop" : "already at risk"}</div>
@@ -557,45 +417,54 @@ export default function App() {
             </div>
           </div>
 
-          {/* Stress table */}
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid " + C.border }}>
-                {[cfg.collateralAsset + " Price Drop", "Collateral Value", "Debt", "Health Factor", "Status", "Buffer Remaining"].map(h => (
-                  <th key={h} style={{ padding: "6px 12px", color: C.dim, fontWeight: 600, textAlign: "right", fontSize: 10, whiteSpace: "nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {depegLevels.map(drop => {
-                const collateral = +(cfg.stressCollateral * (1 + drop / 100)).toFixed(2);
-                const hf = cfg.stressDebt > 0 ? +((collateral * liqThresh) / cfg.stressDebt).toFixed(3) : 999;
-                const bufferToLiq = +(((hf - 1) / hf) * 100).toFixed(1);
-                const isLiq = hf < 1.0;
-                const isDanger = hf < 1.4;
-                const isCaution = hf < 1.7;
-                const isCurrent = drop === 0;
-                const col = isLiq ? C.red : isDanger ? C.red : isCaution ? C.amber : C.green;
-                const status = isLiq ? "🚨 LIQUIDATED" : isDanger ? "🚨 Danger" : isCaution ? "⚠ Caution" : "✓ Safe";
-                return (
-                  <tr key={drop} style={{ borderBottom: "1px solid " + C.border, background: isCurrent ? "rgba(0,212,255,0.05)" : isLiq ? "rgba(255,77,109,0.05)" : "transparent" }}>
-                    <td style={{ padding: "8px 12px", textAlign: "right", color: drop === 0 ? C.accent : C.red, fontFamily: "monospace", fontWeight: drop === 0 ? 700 : 400 }}>{drop === 0 ? "Current (0%)" : drop + "%"}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace" }}>${collateral.toLocaleString()}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", color: C.muted }}>${cfg.stressDebt.toLocaleString()}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: col }}>{hf}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", color: col, fontSize: 11 }}>{status}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", color: isLiq ? C.red : C.dim, fontSize: 11 }}>{isLiq ? "—" : bufferToLiq + "% drop remaining"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid " + C.border }}>
+                  {[cfg.collateralAsset + " Price Drop", "Collateral Value", "Debt", "Health Factor", "Status", "Buffer Remaining"].map(h => (
+                    <th key={h} style={{ padding: "6px 12px", color: C.dim, fontWeight: 600, textAlign: "right", fontSize: 10, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {depegLevels.map(drop => {
+                  const collateral = +(cfg.stressCollateral * (1 + drop / 100)).toFixed(2);
+                  const hf = cfg.stressDebt > 0 ? +((collateral * liqThresh) / cfg.stressDebt).toFixed(3) : 999;
+                  const bufferToLiq = +(((hf - 1) / hf) * 100).toFixed(1);
+                  const isLiq = hf < 1.0;
+                  const isDanger = hf < 1.4;
+                  const isCaution = hf < 1.7;
+                  const col = isLiq || isDanger ? C.red : isCaution ? C.amber : C.green;
+                  const status = isLiq ? "🚨 LIQUIDATED" : isDanger ? "🚨 Danger" : isCaution ? "⚠ Caution" : "✓ Safe";
+                  return (
+                    <tr key={drop} style={{ borderBottom: "1px solid " + C.border, background: drop === 0 ? "rgba(0,212,255,0.05)" : isLiq ? "rgba(255,77,109,0.05)" : "transparent" }}>
+                      <td style={{ padding: "8px 12px", textAlign: "right", color: drop === 0 ? C.accent : C.red, fontFamily: "monospace", fontWeight: drop === 0 ? 700 : 400 }}>{drop === 0 ? "Current (0%)" : drop + "%"}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace" }}>${collateral.toLocaleString()}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", color: C.muted }}>${cfg.stressDebt.toLocaleString()}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: col }}>{hf}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right", color: col, fontSize: 11 }}>{status}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", color: isLiq ? C.red : C.dim, fontSize: 11 }}>{isLiq ? "—" : bufferToLiq + "% drop remaining"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           <div style={{ marginTop: 12, background: C.bg, borderRadius: 8, padding: "10px 14px", fontSize: 11, borderLeft: "3px solid " + C.red, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: C.dim }}>Liquidation triggered at</span>
             <span style={{ color: C.red, fontFamily: "monospace", fontWeight: 800, fontSize: 14 }}>
               {liqDropPct > 0 ? "-" + liqDropPct + "% " + cfg.collateralAsset + " price drop" : "Already at risk"}
             </span>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ marginTop: 24, textAlign: "center", fontSize: 10, color: C.dim, lineHeight: 1.8 }}>
+          <div>⚠ For educational purposes only. Not financial advice. DeFi carries significant risk including liquidation and smart contract risk.</div>
+          <div style={{ marginTop: 4 }}>
+            <a href="https://github.com/sarthak-guleria/lending-loop-optimizer" target="_blank" rel="noopener noreferrer" style={{ color: C.accent, textDecoration: "none" }}>GitHub</a>
+            {" · "}MIT License
           </div>
         </div>
 
