@@ -3,6 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ReferenceLine, ResponsiveContainer,
 } from "recharts";
+import { Analytics } from "@vercel/analytics/react";
 import { C, DEFAULT_CONFIG } from "./constants.js";
 import { computeLoops, computeRating, exportCsv } from "./computations.js";
 import { PRESETS } from "./presets.js";
@@ -469,6 +470,7 @@ export default function App() {
         </div>
 
       </div>
+      <Analytics />
     </div>
   );
 }
