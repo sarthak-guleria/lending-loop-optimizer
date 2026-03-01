@@ -460,7 +460,7 @@ export default function App() {
         <div style={{ marginTop: 24, textAlign: "center", fontSize: 10, color: C.dim, lineHeight: 1.8 }}>
           <div>⚠ For educational purposes only. Not financial advice. DeFi carries significant risk including liquidation and smart contract risk.</div>
           <div style={{ marginTop: 4 }}>
-            <a href="https://github.com/sarthak-guleria/lending-loop-optimizer" target="_blank" rel="noopener noreferrer" style={{ color: C.accent, textDecoration: "none" }}>GitHub</a>
+            <a href="https://github.com/sarthak-guleria/fren-labs" target="_blank" rel="noopener noreferrer" style={{ color: C.accent, textDecoration: "none" }}>GitHub</a>
             {" · "}MIT License
           </div>
         </div>
