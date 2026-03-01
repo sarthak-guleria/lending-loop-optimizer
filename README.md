@@ -1,48 +1,56 @@
-# Lending Loop Optimizer
+# Fren Labs
 
-A browser-based simulator for DeFi lending loop strategies. Model any collateral→borrow→exit loop, tune APYs and LTV parameters, and see how yield scales with loop depth — all before you touch a protocol.
+A growing collection of browser-based tools for thinking through DeFi strategies. Model the numbers, stress-test the risks, understand what you're actually doing before you touch a protocol.
 
-![Lending Loop Optimizer](https://img.shields.io/badge/built_with-React_%2B_Vite-61dafb?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+Built by [Sarthak Guleria](https://sarthak-guleria.github.io) · [fren-labs.vercel.app](https://fren-labs.vercel.app)
 
-## What it does
+---
 
-- **Configurable strategy** — set your chain, collateral asset, borrow asset, and exit asset via text inputs
-- **Loop depth simulator** — computes net APY across 0–10 loops using geometric series math
-- **Interactive loop selector** — pin any loop depth to see exact dollar breakdown (supply income, borrow cost, net)
-- **Per-loop borrow guide** — step-by-step supply/borrow amounts for executing the strategy
-- **Dynamic risk rating** — Moody's-scale equivalent rating that updates live as you change parameters
-- **Collateral stress test** — enter your real Aave position and see health factor at various price drops (-1% to -30%)
+## Tools
 
-## Default strategy
+### Loop Optimizer `/loop`
 
-`sUSDe Loop → GHO Exit` on Mantle — supply sUSDe, borrow USDC in E-Mode, re-supply, exit final loop into GHO supply. Fully configurable to any strategy.
+Model yield looping strategies on Aave V3. Stress-test liquidation thresholds and find the optimal loop depth for your capital.
 
-## Getting started
+- Configurable strategy — chain, collateral asset, borrow asset, exit asset
+- Loop depth simulator — computes net APY across 0–10 loops
+- Interactive loop selector — pin any depth to see exact dollar breakdown
+- Per-loop borrow guide — step-by-step supply/borrow amounts
+- Dynamic risk rating — Moody's-scale equivalent, updates live
+- Collateral stress test — health factor at various price drops
+- CSV export + shareable URLs
+
+### Delta Neutral Explorer `/delta-neutral`
+
+Basis trading and funding rate capture on Hyperliquid. Live rates across 10 markets with ranked position recommendations.
+
+- Live funding rates from Hyperliquid API — auto-refreshes every 5 minutes
+- Ranked position recommendations — ENTER / CONSIDER / EXIT based on rate + risk
+- Carry breakdown — hourly, daily, monthly, annual net yield
+- 7-day funding rate history chart per market
+- Leveraged mode — models gross funding vs borrow cost
+- Spot liquidation stress test for leveraged positions
+- Shareable URLs
+
+---
+
+## Stack
+
+- [React 18](https://react.dev/) + [Vite 6](https://vitejs.dev/)
+- [Recharts](https://recharts.org/) for charting
+- [React Router v6](https://reactrouter.com/) for routing
+- IBM Plex Mono — Bloomberg terminal aesthetic
+
+## Running locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
-
-## Build
-
-```bash
-npm run build
-npm run preview
-```
-
-## Stack
-
-- [React 18](https://react.dev/)
-- [Vite 6](https://vitejs.dev/)
-- [Recharts](https://recharts.org/)
-
 ## Disclaimer
 
-This tool is for educational and research purposes only. It does not constitute financial advice. DeFi protocols carry significant risks including smart contract risk, liquidation risk, and loss of funds. Always do your own research.
+For educational purposes only. Not financial advice. DeFi carries significant risk including liquidation, smart contract vulnerabilities, and funding rate reversals. Do your own research.
 
 ## License
 
