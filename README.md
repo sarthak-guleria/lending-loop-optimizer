@@ -2,7 +2,7 @@
 
 A growing collection of browser-based tools for thinking through DeFi strategies. Model the numbers, stress-test the risks, understand what you're actually doing before you touch a protocol.
 
-Built by [Sarthak Guleria](https://sarthak-guleria.github.io) · [fren-labs.vercel.app](https://fren-labs.vercel.app)
+Built by [Fren](https://x.com/Fren_pm) · [fren-labs.vercel.app](https://fren-labs.vercel.app)
 
 ---
 
