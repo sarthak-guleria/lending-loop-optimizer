@@ -84,7 +84,7 @@ export default function App() {
   );
 
   return (
-    <div style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", background: C.bg, minHeight: "100vh", color: C.text, padding: isMobile ? "16px 12px" : "28px 20px" }}>
+    <div style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", background: C.bg, minHeight: "100vh", color: C.text, padding: isMobile ? "16px 12px" : "28px 20px", overflowX: "hidden" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* Header */}
