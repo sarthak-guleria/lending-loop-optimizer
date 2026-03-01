@@ -1,9 +1,25 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import Shell from "./Shell.jsx";
+import Home from "./pages/Home.jsx";
 import App from "./App.jsx";
+import DeltaNeutral from "./pages/DeltaNeutral.jsx";
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Shell />,
+    children: [
+      { index: true, element: <Home /> },
+      { path: "loop", element: <App /> },
+      { path: "delta-neutral", element: <DeltaNeutral /> },
+    ],
+  },
+]);
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <App />
+    <RouterProvider router={router} />
   </StrictMode>
 );

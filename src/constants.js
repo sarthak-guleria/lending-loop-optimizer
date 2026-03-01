@@ -13,10 +13,10 @@ export const C = {
 
 export const DEFAULT_CONFIG = {
   strategyName: "sUSDe Loop → GHO Exit",
-  loopChain: "Mantle",
+  loopChain: "Ethereum",
   collateralAsset: "sUSDe",
   borrowAsset: "USDC",
-  exitChain: "Mantle",
+  exitChain: "Ethereum",
   exitAsset: "GHO",
   collateralSupplyApy: 3.50,
   borrowApy: 2.50,
