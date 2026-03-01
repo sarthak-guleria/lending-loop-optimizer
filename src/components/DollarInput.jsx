@@ -36,7 +36,7 @@ export default function DollarInput({ label, value, onChange, hint }) {
           onChange={handleChange}
           onFocus={() => { setFocused(true); setRaw(String(value)); }}
           onBlur={handleBlur}
-          style={{ width: "100%", background: C.bg, border: "1px solid " + (focused ? C.accent : C.border), borderRadius: 6, padding: "7px 10px 7px 24px", color: C.accent, fontSize: 14, fontFamily: "monospace", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
+          style={{ width: "100%", background: C.bg, border: "1px solid " + (focused ? C.accent : C.border), borderRadius: 0, padding: "7px 10px 7px 24px", color: C.accent, fontSize: 14, fontFamily: "monospace", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
       </div>
     </div>
   );

@@ -1,14 +1,14 @@
 export const C = {
-  bg: "#0a0e1a",
-  panel: "#0f1524",
-  border: "#1e2a40",
-  accent: "#00d4ff",
-  green: "#00e5a0",
-  amber: "#f5a623",
-  red: "#ff4d6d",
-  muted: "#4a5568",
-  text: "#e2e8f0",
-  dim: "#7a8ba0",
+  bg:     "#000000",   // pure black terminal
+  panel:  "#0d0d0d",   // panel background
+  border: "#222222",   // border
+  accent: "#CC6600",   // muted copper-orange
+  green:  "#00A855",   // softer forest green
+  amber:  "#C8A000",   // warm gold
+  red:    "#CC2233",   // deep red
+  muted:  "#444444",   // muted
+  text:   "#E0E0E0",   // near-white body text
+  dim:    "#777777",   // dimmed labels
 };
 
 export const DEFAULT_CONFIG = {

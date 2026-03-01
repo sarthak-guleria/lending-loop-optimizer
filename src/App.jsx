@@ -77,7 +77,7 @@ export default function App() {
   const actionBtn = (label, onClick, activeColor) => (
     <button onClick={onClick} style={{
       background: C.bg, border: "1px solid " + (activeColor || C.border),
-      borderRadius: 6, padding: "6px 14px", fontSize: 11,
+      borderRadius: 2, padding: "6px 14px", fontSize: 11,
       color: activeColor || C.dim, cursor: "pointer", fontFamily: "monospace", fontWeight: 600,
     }}>{label}</button>
   );
@@ -102,7 +102,7 @@ export default function App() {
             <button onClick={handleCopyLink} style={{
               background: copied ? C.green + "22" : C.bg,
               border: "1px solid " + (copied ? C.green : C.border),
-              borderRadius: 6, padding: "6px 14px", fontSize: 11,
+              borderRadius: 2, padding: "6px 14px", fontSize: 11,
               color: copied ? C.green : C.dim, cursor: "pointer", fontFamily: "monospace", fontWeight: 600,
             }}>{copied ? "✓ Copied!" : "⎘ Share Link"}</button>
             {actionBtn("↓ Export CSV", () => exportCsv(loopData, cfg))}
@@ -117,7 +117,7 @@ export default function App() {
             <button key={p.name} onClick={() => loadPreset(p)} style={{
               background: cfg.strategyName === p.config.strategyName ? C.accent + "22" : C.bg,
               border: "1px solid " + (cfg.strategyName === p.config.strategyName ? C.accent : C.border),
-              borderRadius: 6, padding: "4px 12px", fontSize: 11,
+              borderRadius: 2, padding: "4px 12px", fontSize: 11,
               color: cfg.strategyName === p.config.strategyName ? C.accent : C.dim,
               cursor: "pointer", fontFamily: "monospace", fontWeight: 600,
             }}>{p.name}</button>
@@ -139,15 +139,15 @@ export default function App() {
         </div>
 
         {/* Loop selector + dollar breakdown */}
-        <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+        <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-            <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-              Loop Selector · Pin a depth to see exact dollar breakdown
+            <div style={{ fontSize: 10, color: C.accent, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700 }}>
+              LOOP SELECTOR — PIN DEPTH
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {loopData.map(d => (
                 <button key={d.loops} onClick={() => setSelectedLoops(d.loops)} style={{
-                  padding: "4px 10px", borderRadius: 6, fontSize: 11, fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
+                  padding: "4px 10px", borderRadius: 2, fontSize: 11, fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
                   background: selectedLoops === d.loops ? C.green + "22" : C.bg,
                   border: "1px solid " + (selectedLoops === d.loops ? C.green : C.border),
                   color: selectedLoops === d.loops ? C.green : C.dim,
@@ -164,7 +164,7 @@ export default function App() {
               { label: "Net Annual Income", value: "$" + annualIncome.toLocaleString(), sub: selected.netApy.toFixed(2) + "% APY on $" + cfg.capital.toLocaleString(), color: selected.netApy >= cfg.benchmarkApy ? C.green : C.amber },
               { label: "vs Benchmark", value: (annualVsBenchmark >= 0 ? "+" : "") + "$" + annualVsBenchmark.toLocaleString(), sub: (selected.netApy - cfg.benchmarkApy).toFixed(2) + "% difference", color: annualVsBenchmark >= 0 ? C.green : C.red },
             ].map(item => (
-              <div key={item.label} style={{ background: C.bg, border: "1px solid " + C.border, borderRadius: 8, padding: "10px 12px" }}>
+              <div key={item.label} style={{ background: C.bg, border: "1px solid " + C.border, borderRadius: 2, padding: "10px 12px" }}>
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 5, lineHeight: 1.4 }}>{item.label}</div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: item.color, fontFamily: "monospace" }}>{item.value}</div>
                 <div style={{ fontSize: 9, color: C.muted, marginTop: 3 }}>{item.sub}</div>
@@ -192,7 +192,7 @@ export default function App() {
                   {steps.map(s => (
                     <div key={s.loop} style={{
                       display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, flexWrap: isMobile ? "wrap" : "nowrap",
-                      background: C.bg, borderRadius: 7, padding: isMobile ? "6px 10px" : "8px 14px",
+                      background: C.bg, borderRadius: 2, padding: isMobile ? "6px 10px" : "8px 14px",
                       border: "1px solid " + (s.loop === selectedLoops ? C.green + "66" : C.border),
                     }}>
                       <div style={{ minWidth: 60, fontSize: 11, color: C.dim }}>Loop {s.loop}</div>
@@ -215,8 +215,8 @@ export default function App() {
 
           {/* LEFT — Config */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16 }}>
-              <div style={{ fontSize: 10, color: C.accent, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12, fontWeight: 700 }}>⚙ Strategy Config</div>
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
+              <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.amber, padding: "5px 16px", margin: "-16px -16px 14px -16px" }}>STRATEGY CONFIG</div>
               <TextInput label="Strategy Name" value={cfg.strategyName} onChange={setStr("strategyName")} placeholder="My Loop Strategy" />
               <div style={{ height: 1, background: C.border, margin: "8px 0" }} />
               <div style={{ fontSize: 10, color: C.dim, marginBottom: 8, letterSpacing: "0.1em", textTransform: "uppercase" }}>Loop Leg</div>
@@ -232,8 +232,8 @@ export default function App() {
               <TextInput label="Benchmark Label" value={cfg.benchmarkLabel} onChange={setStr("benchmarkLabel")} placeholder="e.g. GHO Direct" />
             </div>
 
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16 }}>
-              <div style={{ fontSize: 10, color: C.green, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12, fontWeight: 700 }}>⚡ Rates & Parameters</div>
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
+              <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.green, padding: "5px 16px", margin: "-16px -16px 14px -16px" }}>RATES & PARAMETERS</div>
               <NumberInput label={cfg.collateralAsset + " Native APY"} value={cfg.collateralSupplyApy} onChange={set("collateralSupplyApy")} hint="sUSDe: ~4.7–10% historically" />
               <NumberInput label={cfg.borrowAsset + " Borrow APY"} value={cfg.borrowApy} onChange={set("borrowApy")} hint="Stressed at 2.5%" />
               <NumberInput label={cfg.exitAsset + " Exit APY"} value={cfg.exitSupplyApy} onChange={set("exitSupplyApy")} hint="GHO incentive rate" />
@@ -243,17 +243,17 @@ export default function App() {
               <Slider label="Depeg Safety Buffer" value={cfg.safetyBuffer} onChange={set("safetyBuffer")} min={1} max={20} step={1} />
             </div>
 
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16 }}>
-              <div style={{ fontSize: 10, color: C.amber, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12, fontWeight: 700 }}>$ Capital</div>
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
+              <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.accent, padding: "5px 16px", margin: "-16px -16px 14px -16px" }}>CAPITAL</div>
               <CapitalInput value={cfg.capital} onChange={set("capital")} />
             </div>
           </div>
 
           {/* RIGHT — Chart + Table */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: "18px 16px" }}>
-              <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>
-                Net APY vs Loop Depth · ${cfg.capital.toLocaleString()} · {cfg.collateralAsset} → {cfg.borrowAsset} → {cfg.exitAsset}
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: "18px 16px" }}>
+              <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 16px", margin: "-18px -16px 16px -16px" }}>
+                NET APY VS LOOP DEPTH · ${cfg.capital.toLocaleString()} · {cfg.collateralAsset} → {cfg.borrowAsset} → {cfg.exitAsset}
               </div>
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={chartData} margin={{ top: 4, right: 28, left: -10, bottom: 0 }}>
@@ -269,9 +269,9 @@ export default function App() {
               </ResponsiveContainer>
             </div>
 
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16 }}>
-              <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>
-                Loop Breakdown — {cfg.collateralAsset} → {cfg.borrowAsset} → exit to {cfg.exitAsset}
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
+              <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 16px", margin: "-16px -16px 12px -16px" }}>
+                LOOP BREAKDOWN — {cfg.collateralAsset} → {cfg.borrowAsset} → {cfg.exitAsset}
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
@@ -305,11 +305,11 @@ export default function App() {
             </div>
 
             {beatsBenchmarkAt ? (
-              <div style={{ background: "rgba(0,229,160,0.07)", border: "1px solid rgba(0,229,160,0.25)", borderRadius: 10, padding: "12px 16px", fontSize: 12, color: C.green }}>
+              <div style={{ background: "rgba(0,229,160,0.07)", border: "1px solid rgba(0,229,160,0.25)", borderRadius: 2, padding: "12px 16px", fontSize: 12, color: C.green }}>
                 ✦ Beats {cfg.benchmarkApy}% from <strong>loop #{beatsBenchmarkAt.loops}</strong> · Optimal at <strong>loop #{optimalLoop.loops} → {optimalLoop.netApy.toFixed(2)}% APY</strong>
               </div>
             ) : (
-              <div style={{ background: "rgba(245,166,35,0.07)", border: "1px solid rgba(245,166,35,0.25)", borderRadius: 10, padding: "12px 16px", fontSize: 12, color: C.amber }}>
+              <div style={{ background: "rgba(245,166,35,0.07)", border: "1px solid rgba(245,166,35,0.25)", borderRadius: 2, padding: "12px 16px", fontSize: 12, color: C.amber }}>
                 ⚠ Does not beat {cfg.benchmarkApy}% at current parameters. Try raising exit APY, lowering borrow rate, or reducing safety buffer.
               </div>
             )}
@@ -317,13 +317,10 @@ export default function App() {
         </div>
 
         {/* Strategy Explainer */}
-        <div style={{ marginTop: 16, background: C.panel, border: "1px solid #1a3d30", borderRadius: 10, padding: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={{ width: 6, height: 36, borderRadius: 3, background: C.green }} />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.green }}>{cfg.strategyName}</div>
-              <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>{cfg.collateralAsset} Loop on {cfg.loopChain} → Exit to {cfg.exitAsset} on {cfg.exitChain}</div>
-            </div>
+        <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
+          <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.green, padding: "5px 20px", margin: "-20px -20px 14px -20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>STRATEGY EXPLAINER</span>
+            <span style={{ fontSize: 11, fontWeight: 700 }}>{cfg.strategyName}</span>
           </div>
           <div style={{ fontSize: 12, lineHeight: 1.9, marginBottom: 14 }}>
             {[
@@ -339,22 +336,21 @@ export default function App() {
               </div>
             ))}
           </div>
-          <div style={{ background: C.bg, borderRadius: 8, padding: "10px 14px", fontSize: 11, color: C.dim, borderLeft: "3px solid " + C.green }}>
+          <div style={{ background: C.bg, borderRadius: 2, padding: "10px 14px", fontSize: 11, color: C.dim, borderLeft: "3px solid " + C.green }}>
             <strong style={{ color: C.green }}>Key risks:</strong> {cfg.collateralAsset} depeg · High loop count compresses liquidation margin · {cfg.exitChain !== cfg.loopChain ? "Cross-chain bridge risk · " : ""}{cfg.exitAsset} yield is incentive-driven · Gas cost scales with loops on unwind
           </div>
         </div>
 
         {/* Risk Rating */}
-        <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: C.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>◈ Strategy Risk Rating</div>
-            <div style={{ flex: 1, height: 1, background: C.border }} />
-            <div style={{ background: rating.overallColor + "22", border: "1px solid " + rating.overallColor, borderRadius: 6, padding: "4px 16px", fontSize: 18, fontWeight: 900, color: rating.overallColor, fontFamily: "monospace" }}>{rating.overall}</div>
+        <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
+          <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.accent, padding: "5px 20px", margin: "-20px -20px 16px -20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>STRATEGY RISK RATING</span>
+            <span style={{ fontSize: 13, color: rating.overallColor, background: "#000", padding: "1px 10px", fontWeight: 900 }}>{rating.overall}</span>
           </div>
           <div style={{ fontSize: 11, color: C.dim, fontStyle: "italic", marginBottom: 16 }}>{rating.overallDesc}</div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8 }}>
             {rating.factors.map(f => (
-              <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 10, background: C.bg, borderRadius: 7, padding: "8px 12px", border: "1px solid " + C.border }}>
+              <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 10, background: C.bg, borderRadius: 2, padding: "8px 12px", border: "1px solid " + C.border }}>
                 <div style={{ minWidth: 42, fontSize: 12, fontWeight: 800, color: f.color, fontFamily: "monospace", textAlign: "center" }}>{f.rating}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{f.label}</div>
@@ -371,7 +367,7 @@ export default function App() {
               { band: "Ba–B", label: "Speculative · Substantial Risk", color: C.amber },
               { band: "Caa–C", label: "High Risk / Near Default", color: C.red },
             ].map(r => (
-              <div key={r.band} style={{ display: "flex", alignItems: "center", gap: 6, background: C.bg, border: "1px solid " + C.border, borderRadius: 6, padding: "5px 10px", fontSize: 10 }}>
+              <div key={r.band} style={{ display: "flex", alignItems: "center", gap: 6, background: C.bg, border: "1px solid " + C.border, borderRadius: 2, padding: "5px 10px", fontSize: 10 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: r.color }} />
                 <span style={{ color: r.color, fontWeight: 700, fontFamily: "monospace" }}>{r.band}</span>
                 <span style={{ color: C.dim }}>{r.label}</span>
@@ -381,11 +377,10 @@ export default function App() {
         </div>
 
         {/* Collateral Stress Test */}
-        <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <div style={{ fontSize: 11, color: C.red, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>⚡ Collateral Stress Test — Real Position</div>
-            <div style={{ flex: 1, height: 1, background: C.border }} />
-            <div style={{ fontSize: 10, color: C.dim }}>How far can {cfg.collateralAsset} drop before liquidation?</div>
+        <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
+          <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.red, padding: "5px 20px", margin: "-20px -20px 6px -20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>COLLATERAL STRESS TEST</span>
+            <span style={{ fontSize: 9, color: "#000", fontWeight: 700 }}>How far can {cfg.collateralAsset} drop before liquidation?</span>
           </div>
           <div style={{ fontSize: 11, color: C.dim, marginBottom: 16, fontStyle: "italic" }}>
             Enter your actual Aave position. HF = (collateral × liq. threshold) / total debt.
@@ -398,14 +393,14 @@ export default function App() {
               <div style={{ fontSize: 9, color: C.muted, marginBottom: 6, fontStyle: "italic" }}>E-Mode liq. threshold for {cfg.collateralAsset}</div>
               <input type="text" inputMode="decimal" value={cfg.stressLiqThreshold}
                 onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) set("stressLiqThreshold")(v); }}
-                style={{ width: "100%", background: C.bg, border: "1px solid " + C.border, borderRadius: 6, padding: "7px 10px", color: C.accent, fontSize: 14, fontFamily: "monospace", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
+                style={{ width: "100%", background: C.bg, border: "1px solid " + C.border, borderRadius: 2, padding: "7px 10px", color: C.accent, fontSize: 14, fontFamily: "monospace", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
             </div>
           </div>
 
           <div style={{
             background: currentHF >= 1.7 ? "rgba(0,229,160,0.07)" : currentHF >= 1.4 ? "rgba(245,166,35,0.07)" : "rgba(255,77,109,0.07)",
             border: "1px solid " + (currentHF >= 1.7 ? C.green : currentHF >= 1.4 ? C.amber : C.red),
-            borderRadius: 8, padding: "10px 16px", marginBottom: 14,
+            borderRadius: 2, padding: "10px 16px", marginBottom: 14,
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
             <div>
@@ -452,7 +447,7 @@ export default function App() {
             </table>
           </div>
 
-          <div style={{ marginTop: 12, background: C.bg, borderRadius: 8, padding: "10px 14px", fontSize: 11, borderLeft: "3px solid " + C.red, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ marginTop: 12, background: C.bg, borderRadius: 2, padding: "10px 14px", fontSize: 11, borderLeft: "3px solid " + C.red, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: C.dim }}>Liquidation triggered at</span>
             <span style={{ color: C.red, fontFamily: "monospace", fontWeight: 800, fontSize: 14 }}>
               {liqDropPct > 0 ? "-" + liqDropPct + "% " + cfg.collateralAsset + " price drop" : "Already at risk"}

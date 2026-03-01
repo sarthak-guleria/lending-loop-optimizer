@@ -176,8 +176,8 @@ export default function DeltaNeutral() {
     });
   };
 
-  const sectionLabel = (text, color = C.dim) => (
-    <div style={{ fontSize: 10, color, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12, fontWeight: 700 }}>
+  const sectionLabel = (text, barColor = C.accent, margin = "-16px -16px 12px -16px") => (
+    <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: barColor, padding: "5px 16px", margin }}>
       {text}
     </div>
   );
@@ -214,11 +214,11 @@ export default function DeltaNeutral() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <button onClick={handleCopyLink} style={{
               background: copied ? C.green + "22" : C.bg, border: "1px solid " + (copied ? C.green : C.border),
-              borderRadius: 6, padding: "6px 14px", fontSize: 11, color: copied ? C.green : C.dim,
+              borderRadius: 2, padding: "6px 14px", fontSize: 11, color: copied ? C.green : C.dim,
               cursor: "pointer", fontFamily: "monospace", fontWeight: 600,
             }}>{copied ? "✓ Copied!" : "⎘ Share Link"}</button>
             <button onClick={loadRates} style={{
-              background: C.bg, border: "1px solid " + C.border, borderRadius: 6, padding: "6px 14px",
+              background: C.bg, border: "1px solid " + C.border, borderRadius: 2, padding: "6px 14px",
               fontSize: 11, color: C.dim, cursor: "pointer", fontFamily: "monospace", fontWeight: 600,
             }}>↺ Refresh</button>
           </div>
@@ -260,13 +260,13 @@ export default function DeltaNeutral() {
           const avoids    = allRecs.filter(r => r.action === "EXIT");
 
           return (
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16, marginBottom: 16 }}>
-              {sectionLabel("◈ Position Recommendations · Based on live rates + risk profile", C.accent)}
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16, marginBottom: 16 }}>
+              {sectionLabel("POSITION RECOMMENDATIONS — LIVE RATES + RISK PROFILE", C.accent)}
 
               {/* Selected market action */}
               <div style={{
                 background: selStyle.bg, border: "1px solid " + selStyle.border,
-                borderRadius: 8, padding: "12px 16px", marginBottom: 14,
+                borderRadius: 2, padding: "12px 16px", marginBottom: 14,
                 display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10,
               }}>
                 <div>
@@ -297,7 +297,7 @@ export default function DeltaNeutral() {
                     ? <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic" }}>No markets in entry zone</div>
                     : enters.map(r => (
                       <div key={r.coin} onClick={() => setCfg(p => ({ ...p, market: r.coin }))}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 6, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? C.green + "18" : C.bg, border: "1px solid " + (cfg.market === r.coin ? C.green + "44" : C.border) }}>
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 2, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? C.green + "18" : C.bg, border: "1px solid " + (cfg.market === r.coin ? C.green + "44" : C.border) }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{r.coin}</span>
                           <span style={{ fontSize: 9, color: C.muted }}>T{r.tier}</span>
@@ -320,7 +320,7 @@ export default function DeltaNeutral() {
                     ? <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic" }}>None</div>
                     : considers.map(r => (
                       <div key={r.coin} onClick={() => setCfg(p => ({ ...p, market: r.coin }))}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 6, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? C.accent + "12" : C.bg, border: "1px solid " + (cfg.market === r.coin ? C.accent + "44" : C.border) }}>
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 2, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? C.accent + "12" : C.bg, border: "1px solid " + (cfg.market === r.coin ? C.accent + "44" : C.border) }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{r.coin}</span>
                           <span style={{ fontSize: 9, color: C.muted }}>T{r.tier}</span>
@@ -342,7 +342,7 @@ export default function DeltaNeutral() {
                     ? <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic" }}>None currently negative</div>
                     : avoids.map(r => (
                       <div key={r.coin} onClick={() => setCfg(p => ({ ...p, market: r.coin }))}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 6, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? C.red + "12" : C.bg, border: "1px solid " + (cfg.market === r.coin ? C.red + "44" : C.border) }}>
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 2, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? C.red + "12" : C.bg, border: "1px solid " + (cfg.market === r.coin ? C.red + "44" : C.border) }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{r.coin}</span>
                           <span style={{ fontSize: 9, color: C.muted }}>T{r.tier}</span>
@@ -361,8 +361,8 @@ export default function DeltaNeutral() {
         })()}
 
         {/* Live market rates grid */}
-        <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16, marginBottom: 16 }}>
-          {sectionLabel("⚡ Live Funding Rates — Hyperliquid · Click to select market", C.accent)}
+        <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16, marginBottom: 16 }}>
+          {sectionLabel("LIVE FUNDING RATES — HYPERLIQUID · CLICK TO SELECT MARKET", C.green)}
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, 1fr)", gap: 8 }}>
             {MARKETS.map(({ coin }) => {
               const r     = rates[coin];
@@ -377,7 +377,7 @@ export default function DeltaNeutral() {
                   style={{
                     background: isSel ? C.accent + "12" : C.bg,
                     border: "1px solid " + (isSel ? C.accent : C.border),
-                    borderRadius: 8, padding: "10px 12px", cursor: "pointer", transition: "border-color 0.15s",
+                    borderRadius: 2, padding: "10px 12px", cursor: "pointer", transition: "border-color 0.15s",
                   }}
                   onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = C.accent + "44"; }}
                   onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = C.border; }}
@@ -385,7 +385,7 @@ export default function DeltaNeutral() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                     <span style={{ fontSize: 12, fontWeight: 800, color: isSel ? C.accent : C.text }}>{coin}</span>
                     {fr !== null && (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: isPos ? C.green : C.red, background: (isPos ? C.green : C.red) + "22", padding: "1px 5px", borderRadius: 3 }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: isPos ? C.green : C.red, background: (isPos ? C.green : C.red) + "22", padding: "1px 5px", borderRadius: 2 }}>
                         {isPos ? "▲" : "▼"}
                       </span>
                     )}
@@ -425,20 +425,20 @@ export default function DeltaNeutral() {
           {/* LEFT — Config */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16 }}>
-              {sectionLabel("$ Capital", C.amber)}
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
+              {sectionLabel("CAPITAL", C.accent)}
               <CapitalInput value={cfg.capital} onChange={set("capital")} />
             </div>
 
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16 }}>
-              {sectionLabel("⚙ Strategy Mode", C.accent)}
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
+              {sectionLabel("STRATEGY MODE", C.amber)}
               <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                 {[
                   { key: "standard",  label: "Standard" },
                   { key: "leveraged", label: "Leveraged" },
                 ].map(({ key, label }) => (
                   <button key={key} onClick={() => setCfg(prev => ({ ...prev, mode: key }))} style={{
-                    flex: 1, padding: "7px 0", borderRadius: 6, fontSize: 11,
+                    flex: 1, padding: "7px 0", borderRadius: 2, fontSize: 11,
                     fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
                     background: cfg.mode === key ? C.green + "22" : C.bg,
                     border: "1px solid " + (cfg.mode === key ? C.green : C.border),
@@ -460,8 +460,8 @@ export default function DeltaNeutral() {
             </div>
 
             {cfg.mode === "leveraged" && (
-              <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16 }}>
-                {sectionLabel("⚡ Spot Stress Test Inputs", C.red)}
+              <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
+                {sectionLabel("SPOT STRESS TEST INPUTS", C.red)}
                 <div style={{ fontSize: 10, color: C.muted, marginBottom: 12, fontStyle: "italic", lineHeight: 1.6 }}>
                   Enter your actual spot margin position. Perp hedge does not share margin with spot.
                 </div>
@@ -476,9 +476,9 @@ export default function DeltaNeutral() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
             {/* History chart */}
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: "18px 16px" }}>
-              <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>
-                {cfg.market} Funding Rate — Last 7 Days · %/hr
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: "18px 16px" }}>
+              <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 16px", margin: "-18px -16px 16px -16px" }}>
+                {cfg.market} FUNDING RATE — LAST 7 DAYS · %/HR
               </div>
               {histLoading ? (
                 <div style={{ height: 240, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, fontSize: 11 }}>
@@ -499,9 +499,9 @@ export default function DeltaNeutral() {
             </div>
 
             {/* Carry breakdown */}
-            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 16 }}>
-              <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>
-                Carry Breakdown — ${cfg.capital.toLocaleString()} · {cfg.mode === "leveraged" ? cfg.leverage + "× Leveraged" : "Standard 1×"}
+            <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
+              <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 16px", margin: "-16px -16px 14px -16px" }}>
+                CARRY BREAKDOWN — ${cfg.capital.toLocaleString()} · {cfg.mode === "leveraged" ? cfg.leverage + "× LEVERAGED" : "STANDARD 1×"}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 10 }}>
                 {[
@@ -510,7 +510,7 @@ export default function DeltaNeutral() {
                   { label: "Monthly", value: carry.monthlyNet },
                   { label: "Annual",  value: carry.annualNet },
                 ].map(({ label, value }) => (
-                  <div key={label} style={{ background: C.bg, border: "1px solid " + C.border, borderRadius: 8, padding: "10px 12px" }}>
+                  <div key={label} style={{ background: C.bg, border: "1px solid " + C.border, borderRadius: 2, padding: "10px 12px" }}>
                     <div style={{ fontSize: 10, color: C.dim, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: value >= 0 ? C.green : C.red, fontFamily: "monospace" }}>
                       {fmtDollar(value)}
@@ -520,7 +520,7 @@ export default function DeltaNeutral() {
               </div>
 
               {cfg.mode === "leveraged" && (
-                <div style={{ marginTop: 12, background: C.bg, borderRadius: 8, padding: "12px 14px", borderLeft: "3px solid " + C.amber }}>
+                <div style={{ marginTop: 12, background: C.bg, borderRadius: 2, padding: "12px 14px", borderLeft: "3px solid " + C.amber }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: C.dim }}>Gross funding ({fmtApr(currentRate)} APR × {cfg.leverage}× position)</span>
                     <span style={{ fontSize: 11, color: C.green, fontFamily: "monospace", fontWeight: 700 }}>+{carry.annualFundingGross.toFixed(1)}% APR</span>
@@ -542,9 +542,9 @@ export default function DeltaNeutral() {
         </div>
 
         {/* Yield scenario table */}
-        <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 20 }}>
-          <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>
-            Yield Scenarios — ${cfg.capital.toLocaleString()} · {cfg.mode === "leveraged" ? cfg.leverage + "× Leveraged" : "Standard 1×"}
+        <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
+          <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 20px", margin: "-20px -20px 6px -20px" }}>
+            YIELD SCENARIOS — ${cfg.capital.toLocaleString()} · {cfg.mode === "leveraged" ? cfg.leverage + "× LEVERAGED" : "STANDARD 1×"}
           </div>
           <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, fontStyle: "italic" }}>
             Theoretical projections at fixed rates. Real yield varies hourly. Current live rate row highlighted.
@@ -575,7 +575,7 @@ export default function DeltaNeutral() {
                         {fmtRate(s.rate)}
                       </td>
                       <td style={{ padding: "8px 10px", textAlign: "right" }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: sig.color, background: sig.color + "22", padding: "2px 6px", borderRadius: 3 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: sig.color, background: sig.color + "22", padding: "2px 6px", borderRadius: 2 }}>
                           {sig.label}
                         </span>
                       </td>
@@ -603,18 +603,15 @@ export default function DeltaNeutral() {
         </div>
 
         {/* Risk Rating */}
-        <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: C.accent, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>◈ Strategy Risk Assessment</div>
-            <div style={{ flex: 1, height: 1, background: C.border }} />
-            <div style={{ background: rating.overallColor + "22", border: "1px solid " + rating.overallColor, borderRadius: 6, padding: "4px 16px", fontSize: 18, fontWeight: 900, color: rating.overallColor, fontFamily: "monospace" }}>
-              {rating.overall}
-            </div>
+        <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
+          <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.accent, padding: "5px 20px", margin: "-20px -20px 16px -20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>STRATEGY RISK ASSESSMENT</span>
+            <span style={{ fontSize: 13, color: rating.overallColor, background: "#000", padding: "1px 10px", fontWeight: 900 }}>{rating.overall}</span>
           </div>
           <div style={{ fontSize: 11, color: C.dim, fontStyle: "italic", marginBottom: 16 }}>{rating.overallDesc}</div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8 }}>
             {rating.factors.map(f => (
-              <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 10, background: C.bg, borderRadius: 7, padding: "8px 12px", border: "1px solid " + C.border }}>
+              <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 10, background: C.bg, borderRadius: 2, padding: "8px 12px", border: "1px solid " + C.border }}>
                 <div style={{ minWidth: 42, fontSize: 12, fontWeight: 800, color: f.color, fontFamily: "monospace", textAlign: "center" }}>{f.rating}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{f.label}</div>
@@ -631,7 +628,7 @@ export default function DeltaNeutral() {
               { band: "Ba–B",   label: "Speculative · Substantial Risk",     color: C.amber },
               { band: "Caa–C",  label: "High Risk",                          color: C.red },
             ].map(r => (
-              <div key={r.band} style={{ display: "flex", alignItems: "center", gap: 6, background: C.bg, border: "1px solid " + C.border, borderRadius: 6, padding: "5px 10px", fontSize: 10 }}>
+              <div key={r.band} style={{ display: "flex", alignItems: "center", gap: 6, background: C.bg, border: "1px solid " + C.border, borderRadius: 2, padding: "5px 10px", fontSize: 10 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: r.color }} />
                 <span style={{ color: r.color, fontWeight: 700, fontFamily: "monospace" }}>{r.band}</span>
                 <span style={{ color: C.dim }}>{r.label}</span>
@@ -642,11 +639,10 @@ export default function DeltaNeutral() {
 
         {/* Leveraged stress test */}
         {cfg.mode === "leveraged" && (
-          <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 10, padding: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <div style={{ fontSize: 11, color: C.red, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>⚡ Spot Leg Liquidation Stress Test</div>
-              <div style={{ flex: 1, height: 1, background: C.border }} />
-              <div style={{ fontSize: 10, color: C.dim }}>How far can {cfg.market} drop before spot liquidation?</div>
+          <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
+            <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.red, padding: "5px 20px", margin: "-20px -20px 6px -20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>SPOT LEG LIQUIDATION STRESS TEST</span>
+              <span style={{ fontSize: 9, fontWeight: 700 }}>How far can {cfg.market} drop?</span>
             </div>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 16, fontStyle: "italic" }}>
               The perp hedge does NOT protect against spot leg liquidation — separate margin accounts, separate thresholds.
@@ -660,7 +656,7 @@ export default function DeltaNeutral() {
                 <div style={{
                   background: currentHF >= 1.7 ? "rgba(0,229,160,0.07)" : currentHF >= 1.4 ? "rgba(245,166,35,0.07)" : "rgba(255,77,109,0.07)",
                   border: "1px solid " + (currentHF >= 1.7 ? C.green : currentHF >= 1.4 ? C.amber : C.red),
-                  borderRadius: 8, padding: "10px 16px", marginBottom: 14,
+                  borderRadius: 2, padding: "10px 16px", marginBottom: 14,
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                 }}>
                   <div>
@@ -714,7 +710,7 @@ export default function DeltaNeutral() {
                 </tbody>
               </table>
             </div>
-            <div style={{ marginTop: 12, background: C.bg, borderRadius: 8, padding: "10px 14px", fontSize: 11, borderLeft: "3px solid " + C.red, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ marginTop: 12, background: C.bg, borderRadius: 2, padding: "10px 14px", fontSize: 11, borderLeft: "3px solid " + C.red, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: C.dim }}>Spot liquidation triggered at</span>
               {(() => {
                 const liqThresh  = cfg.stressLiqThreshold / 100;
