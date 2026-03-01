@@ -273,22 +273,18 @@ export default function App() {
               <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 16px", margin: "-18px -16px 16px -16px" }}>
                 {isMobile ? "NET APY VS LOOP DEPTH" : <>NET APY VS LOOP DEPTH · ${cfg.capital.toLocaleString()} · {cfg.collateralAsset} → {cfg.borrowAsset} → {cfg.exitAsset}</>}
               </div>
-              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ minWidth: 480 }}>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <LineChart data={chartData} margin={{ top: 4, right: 28, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                      <XAxis dataKey="loops" tick={{ fill: C.dim, fontSize: 11 }} label={{ value: "Loops", position: "insideBottom", offset: -2, fill: C.muted, fontSize: 11 }} />
-                      <YAxis tick={{ fill: C.dim, fontSize: 11 }} tickFormatter={v => v.toFixed(1) + "%"} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
-                      <ReferenceLine y={cfg.benchmarkApy} stroke={C.amber} strokeDasharray="6 3" label={{ value: cfg.benchmarkApy + "%", fill: C.amber, fontSize: 10, position: "insideTopRight" }} />
-                      <Line type="monotone" dataKey={loopKey} stroke={C.green} strokeWidth={2.5} dot={{ fill: C.green, r: 4 }} activeDot={{ r: 6 }} />
-                      <Line type="monotone" dataKey={benchKey} stroke={C.amber} strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={chartData} margin={{ top: 4, right: 28, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                  <XAxis dataKey="loops" tick={{ fill: C.dim, fontSize: 11 }} label={{ value: "Loops", position: "insideBottom", offset: -2, fill: C.muted, fontSize: 11 }} />
+                  <YAxis tick={{ fill: C.dim, fontSize: 11 }} tickFormatter={v => v.toFixed(1) + "%"} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                  <ReferenceLine y={cfg.benchmarkApy} stroke={C.amber} strokeDasharray="6 3" label={{ value: cfg.benchmarkApy + "%", fill: C.amber, fontSize: 10, position: "insideTopRight" }} />
+                  <Line type="monotone" dataKey={loopKey} stroke={C.green} strokeWidth={2.5} dot={{ fill: C.green, r: 4 }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey={benchKey} stroke={C.amber} strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
 
             <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
