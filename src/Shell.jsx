@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { C } from "./constants.js";
 
 function useClock() {
@@ -114,6 +115,7 @@ export default function Shell() {
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 9, color: C.muted, letterSpacing: "0.06em" }}>FREN LABS v1.0 · EDUCATIONAL USE ONLY · NOT FINANCIAL ADVICE</span>
       </div>
+      <SpeedInsights />
     </div>
   );
 }
