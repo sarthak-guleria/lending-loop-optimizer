@@ -12,6 +12,16 @@ function useClock() {
   return time;
 }
 
+function useIsMobile(breakpoint = 640) {
+  const [mobile, setMobile] = useState(() => window.innerWidth < breakpoint);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < breakpoint);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, [breakpoint]);
+  return mobile;
+}
+
 const FKEYS = [
   { key: "F1", label: "HOME",    to: "/" },
   { key: "F2", label: "LOOP",    to: "/loop" },
@@ -19,8 +29,9 @@ const FKEYS = [
 ];
 
 export default function Shell() {
-  const time = useClock();
-  const loc  = useLocation();
+  const time    = useClock();
+  const loc     = useLocation();
+  const mobile  = useIsMobile(640);
 
   const timeStr = time.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const dateStr = time.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }).toUpperCase();
@@ -41,7 +52,7 @@ export default function Shell() {
         zIndex: 100,
         background: "#000",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: mobile ? 10 : 16 }}>
           <NavLink to="/" style={{ textDecoration: "none" }}>
             <span style={{
               fontSize: 12, fontWeight: 900, color: "#000",
@@ -51,28 +62,32 @@ export default function Shell() {
               FREN LABS
             </span>
           </NavLink>
-          <span style={{ fontSize: 10, color: C.dim, letterSpacing: "0.08em" }}>DEFI STRATEGY TERMINAL</span>
-          <span style={{ fontSize: 10, color: C.border }}>|</span>
-          {FKEYS.slice(1).map(({ key, label, to }) => {
-            const isActive = loc.pathname.startsWith(to);
-            return (
-              <NavLink key={to} to={to} style={{ textDecoration: "none" }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
-                  color: isActive ? C.accent : C.dim,
-                  borderBottom: isActive ? "1px solid " + C.accent : "1px solid transparent",
-                  paddingBottom: 1,
-                }}>{label}</span>
-              </NavLink>
-            );
-          })}
+          {!mobile && (
+            <>
+              <span style={{ fontSize: 10, color: C.dim, letterSpacing: "0.08em" }}>DEFI STRATEGY TERMINAL</span>
+              <span style={{ fontSize: 10, color: C.border }}>|</span>
+              {FKEYS.slice(1).map(({ key, label, to }) => {
+                const isActive = loc.pathname.startsWith(to);
+                return (
+                  <NavLink key={to} to={to} style={{ textDecoration: "none" }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
+                      color: isActive ? C.accent : C.dim,
+                      borderBottom: isActive ? "1px solid " + C.accent : "1px solid transparent",
+                      paddingBottom: 1,
+                    }}>{label}</span>
+                  </NavLink>
+                );
+              })}
+            </>
+          )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: mobile ? 8 : 12, fontSize: 10 }}>
           <span style={{ color: C.green, fontWeight: 700 }}>● LIVE</span>
-          <span style={{ color: C.border }}>|</span>
+          {!mobile && <span style={{ color: C.border }}>|</span>}
           <span style={{ color: C.text, fontWeight: 700, fontFamily: "monospace" }}>{timeStr}</span>
-          <span style={{ color: C.dim }}>{dateStr}</span>
+          {!mobile && <span style={{ color: C.dim }}>{dateStr}</span>}
         </div>
       </nav>
 
@@ -113,7 +128,9 @@ export default function Shell() {
           );
         })}
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 9, color: C.muted, letterSpacing: "0.06em" }}>FREN LABS v1.0 · EDUCATIONAL USE ONLY · NOT FINANCIAL ADVICE</span>
+        {!mobile && (
+          <span style={{ fontSize: 9, color: C.muted, letterSpacing: "0.06em" }}>FREN LABS v1.0 · EDUCATIONAL USE ONLY · NOT FINANCIAL ADVICE</span>
+        )}
       </div>
       <SpeedInsights />
     </div>

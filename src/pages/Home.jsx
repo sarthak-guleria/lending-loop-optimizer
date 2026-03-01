@@ -1,5 +1,16 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { C } from "../constants.js";
+
+function useIsMobile(breakpoint = 640) {
+  const [mobile, setMobile] = useState(() => window.innerWidth < breakpoint);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < breakpoint);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, [breakpoint]);
+  return mobile;
+}
 
 const TOOLS = [
   {
@@ -48,6 +59,7 @@ const TOOLS = [
 ];
 
 export default function Home() {
+  const mobile = useIsMobile(640);
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "24px 16px 60px" }}>
 
@@ -109,11 +121,11 @@ export default function Home() {
               {/* Card body */}
               <div style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: 260 }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
                     <p style={{ fontSize: 12, color: C.text, margin: "0 0 6px", lineHeight: 1.65 }}>{desc}</p>
                     <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>{detail}</p>
                   </div>
-                  <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexShrink: 0 }}>
+                  <div style={{ display: "flex", gap: mobile ? 16 : 20, alignItems: "flex-start", flexShrink: 0, flexWrap: "wrap" }}>
                     {meta.map(m => (
                       <div key={m.k}>
                         <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 2 }}>{m.k}</div>
