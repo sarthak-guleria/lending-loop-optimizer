@@ -192,17 +192,34 @@ export default function App() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {steps.map(s => (
                     <div key={s.loop} style={{
-                      display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, flexWrap: isMobile ? "wrap" : "nowrap",
-                      background: C.bg, borderRadius: 2, padding: isMobile ? "6px 10px" : "8px 14px",
+                      background: C.bg, borderRadius: 2,
+                      padding: isMobile ? "8px 10px" : "8px 14px",
                       border: "1px solid " + (s.loop === selectedLoops ? C.green + "66" : C.border),
                     }}>
-                      <div style={{ minWidth: 60, fontSize: 11, color: C.dim }}>Loop {s.loop}</div>
-                      <div style={{ minWidth: 130, fontSize: 11, fontFamily: "monospace" }}>Supply <span style={{ color: C.accent }}>${s.supplied.toLocaleString()}</span></div>
-                      <div style={{ fontSize: 14, color: C.dim }}>→</div>
-                      <div style={{ minWidth: 140, fontSize: 11, fontFamily: "monospace" }}>Borrow <span style={{ color: C.amber }}>${s.borrow.toLocaleString()}</span></div>
-                      <div style={{ fontSize: 14, color: C.dim }}>→</div>
-                      <div style={{ flex: 1, fontSize: 11, color: s.loop === selectedLoops ? C.green : C.muted, fontStyle: s.loop === selectedLoops ? "normal" : "italic" }}>{s.action}</div>
-                      {s.loop === selectedLoops && <div style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>EXIT</div>}
+                      {isMobile ? (
+                        <>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>LOOP {s.loop}</span>
+                            {s.loop === selectedLoops && <span style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>EXIT</span>}
+                          </div>
+                          <div style={{ fontSize: 11, fontFamily: "monospace", marginBottom: 3 }}>
+                            Supply <span style={{ color: C.accent }}>${s.supplied.toLocaleString()}</span>
+                            <span style={{ color: C.dim }}> → </span>
+                            Borrow <span style={{ color: C.amber }}>${s.borrow.toLocaleString()}</span>
+                          </div>
+                          <div style={{ fontSize: 10, color: s.loop === selectedLoops ? C.green : C.muted, fontStyle: s.loop === selectedLoops ? "normal" : "italic" }}>↳ {s.action}</div>
+                        </>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ minWidth: 60, fontSize: 11, color: C.dim }}>Loop {s.loop}</div>
+                          <div style={{ minWidth: 130, fontSize: 11, fontFamily: "monospace" }}>Supply <span style={{ color: C.accent }}>${s.supplied.toLocaleString()}</span></div>
+                          <div style={{ fontSize: 14, color: C.dim }}>→</div>
+                          <div style={{ minWidth: 140, fontSize: 11, fontFamily: "monospace" }}>Borrow <span style={{ color: C.amber }}>${s.borrow.toLocaleString()}</span></div>
+                          <div style={{ fontSize: 14, color: C.dim }}>→</div>
+                          <div style={{ flex: 1, fontSize: 11, color: s.loop === selectedLoops ? C.green : C.muted, fontStyle: s.loop === selectedLoops ? "normal" : "italic" }}>{s.action}</div>
+                          {s.loop === selectedLoops && <div style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>EXIT</div>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -254,7 +271,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: "18px 16px" }}>
               <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 16px", margin: "-18px -16px 16px -16px" }}>
-                NET APY VS LOOP DEPTH · ${cfg.capital.toLocaleString()} · {cfg.collateralAsset} → {cfg.borrowAsset} → {cfg.exitAsset}
+                {isMobile ? "NET APY VS LOOP DEPTH" : <>NET APY VS LOOP DEPTH · ${cfg.capital.toLocaleString()} · {cfg.collateralAsset} → {cfg.borrowAsset} → {cfg.exitAsset}</>}
               </div>
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={chartData} margin={{ top: 4, right: 28, left: -10, bottom: 0 }}>
@@ -272,7 +289,7 @@ export default function App() {
 
             <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
               <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 16px", margin: "-16px -16px 12px -16px" }}>
-                LOOP BREAKDOWN — {cfg.collateralAsset} → {cfg.borrowAsset} → {cfg.exitAsset}
+                {isMobile ? "LOOP BREAKDOWN" : <>LOOP BREAKDOWN — {cfg.collateralAsset} → {cfg.borrowAsset} → {cfg.exitAsset}</>}
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
@@ -321,7 +338,7 @@ export default function App() {
         <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
           <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.green, padding: "5px 20px", margin: "-20px -20px 14px -20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>STRATEGY EXPLAINER</span>
-            <span style={{ fontSize: 11, fontWeight: 700 }}>{cfg.strategyName}</span>
+            {!isMobile && <span style={{ fontSize: 11, fontWeight: 700 }}>{cfg.strategyName}</span>}
           </div>
           <div style={{ fontSize: 12, lineHeight: 1.9, marginBottom: 14 }}>
             {[
@@ -381,7 +398,7 @@ export default function App() {
         <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
           <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.red, padding: "5px 20px", margin: "-20px -20px 6px -20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>COLLATERAL STRESS TEST</span>
-            <span style={{ fontSize: 9, color: "#000", fontWeight: 700 }}>How far can {cfg.collateralAsset} drop before liquidation?</span>
+            {!isMobile && <span style={{ fontSize: 9, color: "#000", fontWeight: 700 }}>How far can {cfg.collateralAsset} drop before liquidation?</span>}
           </div>
           <div style={{ fontSize: 11, color: C.dim, marginBottom: 16, fontStyle: "italic" }}>
             Enter your actual Aave position. HF = (collateral × liq. threshold) / total debt.
