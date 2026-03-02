@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A Practical Guide to Yield Looping on Aave — Sarthak Guleria</title>
+  <meta name="description" content="How to put idle capital to work using sUSDe, GHO, and Aave E-Mode on Mantle. Step-by-step guide with risk analysis." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1e1e1e;
+      --text: #d4d4d4;
+      --text-dim: #666666;
+      --text-bright: #f0f0f0;
+      --accent: #00e5a0;
+      --accent-blue: #3b9eff;
+      --accent-warn: #f5c518;
+      --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      padding: 24px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    nav a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      transition: color 0.15s;
+    }
+
+    nav a:hover { color: var(--text-bright); }
+
+    nav .home { color: var(--text-bright); font-weight: 500; }
+
+    nav .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    nav .breadcrumb span { color: var(--border); }
+
+    /* ── LAYOUT ── */
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 80px 32px 120px;
+    }
+
+    /* ── HEADER ── */
+    .article-meta {
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: #0f2a1e;
+      padding: 3px 8px;
+      border-radius: 3px;
+    }
+
+    .date {
+      font-size: 13px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    h1 {
+      font-size: clamp(24px, 4vw, 36px);
+      font-weight: 600;
+      color: var(--text-bright);
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+
+    .subtitle {
+      font-size: 17px;
+      color: var(--text-dim);
+      line-height: 1.6;
+      margin-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 40px;
+    }
+
+    /* ── BODY TEXT ── */
+    p {
+      margin-bottom: 20px;
+      font-size: 16px;
+      color: var(--text);
+      line-height: 1.75;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin: 56px 0 16px;
+      letter-spacing: -0.01em;
+    }
+
+    h2::before {
+      content: '— ';
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin: 32px 0 10px;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* ── LISTS ── */
+    ul, ol {
+      margin: 0 0 20px 0;
+      padding-left: 24px;
+    }
+
+    li {
+      font-size: 16px;
+      color: var(--text);
+      line-height: 1.75;
+      margin-bottom: 6px;
+    }
+
+    ol li::marker { color: var(--accent); font-family: var(--font-mono); font-size: 13px; }
+    ul li::marker { color: var(--text-dim); }
+
+    /* ── CALLOUT ── */
+    .callout {
+      border-left: 2px solid var(--accent-blue);
+      padding: 16px 20px;
+      background: #0c1420;
+      border-radius: 0 6px 6px 0;
+      margin: 28px 0;
+      font-size: 15px;
+      color: #8ab4d4;
+      line-height: 1.65;
+    }
+
+    .callout.warn {
+      border-left-color: var(--accent-warn);
+      background: #161208;
+      color: #c4a84a;
+    }
+
+    .callout.notice {
+      border-left-color: var(--text-dim);
+      background: #111111;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    /* ── CODE ── */
+    code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: #161616;
+      color: var(--accent);
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── FORMULA ── */
+    .formula {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: #0f1f2a;
+      color: var(--accent-blue);
+      padding: 14px 20px;
+      border-radius: 6px;
+      border: 1px solid #1a3048;
+      margin: 20px 0;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── SCREENSHOT ── */
+    .screenshot {
+      margin: 32px 0 8px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .screenshot img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-style: italic;
+      text-align: center;
+      margin-bottom: 32px;
+      font-family: var(--font-mono);
+    }
+
+    /* ── DIVIDER ── */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 56px 0;
+    }
+
+    /* ── LINKS ── */
+    a {
+      color: var(--accent-blue);
+      text-decoration: none;
+      border-bottom: 1px solid #1a3048;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    a:hover {
+      color: #7dc4ff;
+      border-bottom-color: var(--accent-blue);
+    }
+
+    /* ── FOOTER ── */
+    .article-footer {
+      margin-top: 80px;
+      padding-top: 40px;
+      border-top: 1px solid var(--border);
+    }
+
+    .follow-line {
+      font-size: 15px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .follow-line a {
+      color: var(--text-bright);
+      border-bottom-color: var(--border);
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-dim);
+      border-bottom: none;
+      margin-top: 32px;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .back-link:hover { color: var(--text-bright); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .container { padding: 48px 20px 80px; }
+      nav { padding: 20px; }
+      h2 { margin-top: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="breadcrumb">
+      <a href="../" class="home">Sarthak Guleria</a>
+      <span>/</span>
+      <a href="index.html">Writing</a>
+      <span>/</span>
+      <a href="#">Aave Loop Guide</a>
+    </div>
+    <a href="../">← Home</a>
+  </nav>
+
+  <div class="container">
+
+    <div class="article-meta">
+      <span class="tag">DeFi</span>
+      <span class="date">Feb 2026</span>
+    </div>
+
+    <h1>A Practical Guide to Yield Looping on Aave on Mantle</h1>
+    <p class="subtitle">How to put idle capital to work using sUSDe, GHO, and Aave E-Mode — step by step. Written for people who know crypto but haven't touched DeFi lending yet.</p>
+
+    <div class="callout notice">
+      This is not financial advice. DeFi carries real risks including liquidation, smart contract bugs, and yield compression. Understand what you're doing before deploying capital.
+    </div>
+
+    <p>With markets moving sideways, people, founders, and treasuries are waking up to something they overlooked when prices were flying: idle capital has an opportunity cost.</p>
+
+    <p>When you're not in a trade, your money is still making a decision. It's just usually a bad one — sitting in a wallet earning nothing while DeFi protocols pay 5-8% on stablecoins. The infrastructure has matured. The yields are real. And right now, Aave on Mantle is running an incentive program that makes it a particularly good time to explore this.</p>
+
+    <p>I'll walk you through a loop strategy you can adjust based on your own risk appetite and capital size. No trading, no perpetuals, no complex mechanics. Just lending, borrowing, and putting that borrowed capital back to work.</p>
+
+    <hr />
+
+    <h2>Key Concepts Before We Start</h2>
+
+    <h3>Supplying and Borrowing</h3>
+    <p>Aave is a lending protocol. You deposit assets (supply), which earns you interest. You can then borrow against your deposited assets, paying a borrow rate. The ratio of what you've borrowed to what you've deposited is your Loan-to-Value (LTV).</p>
+
+    <h3>Health Factor</h3>
+    <p>Your health factor is the single number that tells you how safe your position is:</p>
+    <div class="formula">Health Factor = (Collateral Value × Liquidation Threshold) / Total Debt</div>
+    <p>If it drops below 1.0, your position gets liquidated. Above 1.5 is comfortable. Below 1.3 starts getting risky.</p>
+
+    <h3>E-Mode (Efficiency Mode)</h3>
+    <p>Aave's E-Mode allows correlated assets to use a much higher LTV than normal. On Mantle, the sUSDe Stablecoins E-Mode lets you supply sUSDe as collateral and borrow USDC/GHO at up to 90% LTV with a 92% liquidation threshold. Both assets are dollar-pegged, so the protocol can afford the higher LTV.</p>
+
+    <h3>sUSDe</h3>
+    <p>sUSDe is Ethena's yield-bearing stablecoin. It appreciates as Ethena earns funding rates from delta-neutral perpetual futures positions. Historically it's earned between 4.7% and 15%+ APY. Currently around 3.5%. Dollar-pegged, not algorithmic — the yield comes from real derivatives activity.</p>
+
+    <h3>GHO — and why it's the benchmark</h3>
+    <p>GHO is Aave's native stablecoin. On Mantle, Aave governance is currently incentivising GHO supply at ~7% APY. That's our benchmark — what you'd earn doing the simplest thing. The honest take: GHO's 7% is a governance subsidy that can be cut overnight with no warning. sUSDe's yield is structural — compresses gradually, has a floor, and you can see it coming. The loop builds on structural yield and captures the GHO incentive as a bonus while it lasts.</p>
+
+    <hr />
+
+    <h2>The Core Loop Mechanic</h2>
+
+    <p>Supply sUSDe as collateral, borrow USDC against it, convert that USDC back to sUSDe, and supply again. Each loop increases your total sUSDe exposure relative to your starting capital.</p>
+
+    <p>On the final loop, instead of converting back to sUSDe, you borrow GHO directly on Aave and supply it — capturing the 7% incentive rate. GHO is borrowable in E-Mode directly on Mantle. No bridging required, stays on chain.</p>
+
+    <div class="screenshot">
+      <img src="assets/aave-guide-strategy-steps.png" alt="Strategy overview — sUSDe Loop → GHO Exit" />
+    </div>
+    <p class="caption">Strategy overview — 5-step loop mechanics with key risks</p>
+
+    <div class="callout warn">
+      Every loop drops your health factor. More loops = more yield but less protection. The strategy below is deliberately conservative — the marginal APY from each extra loop shrinks while the risk grows.
+    </div>
+
+    <hr />
+
+    <h2>Why We're Keeping Loops Low</h2>
+
+    <p>You could loop 7-8 times and push APY higher. Here's why we don't:</p>
+
+    <ul>
+      <li>At 7-8 loops your health factor is ~1.2. A 3% sUSDe depeg — which has happened historically — puts you in the danger zone.</li>
+      <li>Borrow rates are variable. USDC borrow on Aave on Mantle can creep from 2% to 2.5%+ as utilisation increases. At high loop counts this compresses your spread meaningfully.</li>
+      <li>Unwinding is sequential — exiting 7 loops means 7 sets of repay → withdraw → swap. At 2 loops it's manageable. At 7 it's a chore under pressure.</li>
+      <li>Diminishing returns. Loop 1 to 2 adds ~0.2% APY. Loop 6 to 7 adds ~0.06%. The risk-reward flips fast.</li>
+    </ul>
+
+    <p>Target health factor: 1.5 minimum, 1.7 comfortable.</p>
+
+    <hr />
+
+    <h2>Step by Step</h2>
+
+    <h3>What you need</h3>
+    <ul>
+      <li>A wallet with a small amount of MNT on Mantle for gas (cents per transaction)</li>
+      <li>sUSDe — mint on Ethena's app or swap into it on Mantle</li>
+      <li>Matcha or Bungee for DEX aggregation when swapping USDC back to sUSDe between loops</li>
+      <li>Aave V3 — go to <a href="https://app.aave.com" target="_blank">app.aave.com</a> and switch network to Mantle</li>
+    </ul>
+
+    <h3>Building the position</h3>
+    <ol>
+      <li>Get sUSDe and go to Aave on Mantle. Enable E-Mode: click 'E-Mode' in the borrows panel, select 'sUSDe Stablecoins'.</li>
+      <li>Supply your sUSDe as collateral. Toggle it on as collateral.</li>
+      <li>Borrow USDC at 80% of your collateral value — 90% E-Mode max minus 10% safety buffer.</li>
+      <li>Go to Matcha or Bungee. Swap the borrowed USDC back to sUSDe. Return to Aave and supply it. Loop 1 complete.</li>
+      <li>Repeat steps 3–4 once more. Loop 2 complete. Health factor should be around 1.56.</li>
+      <li>Final step: use remaining borrow capacity to borrow GHO directly on Aave. Supply it immediately. You're now earning 7% on that GHO within the same protocol.</li>
+      <li>You're in. Monitor health factor. If it drops below 1.4, repay some USDC debt or supply more sUSDe.</li>
+    </ol>
+
+    <hr />
+
+    <h2>What the Numbers Look Like</h2>
+    <p>At $10,000 starting capital, 2 loops, current rates (3.5% sUSDe, 2.5% borrow, 7.03% GHO):</p>
+
+    <div class="screenshot">
+      <img src="assets/aave-guide-apy-chart.png" alt="Net APY vs Loop Depth chart" />
+    </div>
+    <p class="caption">Net APY vs loop depth — crosses the 7.03% GHO benchmark at loop 1</p>
+
+    <p>At loop 2: $24,400 total sUSDe deployed, $6,400 GHO exit, 7.49% net APY, ~$749/yr on $10,000 capital. Health factor 1.56.</p>
+
+    <div class="callout">
+      Aave's dashboard will show a negative Net APY — it doesn't count sUSDe's native Ethena yield, only the protocol APY. Your real yield is higher. Check the sUSDe rate separately on <a href="https://app.ethena.fi" target="_blank">Ethena's app</a>.
+    </div>
+
+    <hr />
+
+    <h2>Your Liquidation Buffer</h2>
+
+    <div class="screenshot">
+      <img src="assets/aave-guide-stress-test.png" alt="Collateral Stress Test" />
+    </div>
+    <p class="caption">Stress test — loop 2 position, liquidation triggered at -35.85% sUSDe drop</p>
+
+    <p>At loop 2, sUSDe would need to drop ~36% before liquidation. The largest historical sUSDe depeg was 3-4%. The real risk isn't a price crash — it's APY compression. Falling funding rates hurt returns but don't threaten the position.</p>
+
+    <div class="callout warn">
+      Personal rule: if health factor drops below 1.4, act. Repay some USDC debt or supply more sUSDe. Don't wait until 1.1.
+    </div>
+
+    <hr />
+
+    <h2>Risks to Understand Before You Start</h2>
+
+    <h3>sUSDe APY compression</h3>
+    <p>If Ethena's funding rates drop to 1-2%, your spread against borrowing costs shrinks and the loop may underperform GHO direct supply. This doesn't cause liquidation — it just means you'd have been better off doing something simpler.</p>
+
+    <h3>Borrow rate creep</h3>
+    <p>USDC borrow rates on Aave are utilisation-driven. Modelled at 2.5% as a stressed rate — if it goes above 3%, revisit your loop depth.</p>
+
+    <h3>GHO incentive ending</h3>
+    <p>The 7% GHO supply APY is a governance program. When it ends, the GHO you supplied drops to base rates (~2-3%). Manageable — you redeploy that capital — but worth planning for.</p>
+
+    <h3>Smart contract risk</h3>
+    <p>Aave is one of the most battle-tested protocols in DeFi. Ethena is newer but well-audited and growing fast. Single chain on Mantle means no bridge exposure.</p>
+
+    <hr />
+
+    <h2>How to Exit</h2>
+
+    <p>Exiting is the reverse of entering, one loop at a time: repay GHO → withdraw sUSDe → swap to USDC via Matcha or Bungee → repay USDC. Repeat per loop. At loop 2 this is ~6 transactions. Always repay before withdrawing.</p>
+
+    <hr />
+
+    <h2>The Model</h2>
+
+    <p>Sorry this got long — the model makes it easier. Open it at <a href="https://lending-loop-optimizer.vercel.app" target="_blank">lending-loop-optimizer.vercel.app</a> or grab the source on <a href="https://github.com" target="_blank">GitHub</a>. Plug in current rates, pick your loop depth, run the stress test before you deploy anything.</p>
+
+    <p>That's it.</p>
+
+    <div class="article-footer">
+      <p class="follow-line">If this was useful, follow me on X — <a href="https://x.com/Fren_pm" target="_blank">@Fren_pm</a></p>
+      <a href="index.html" class="back-link">← All writing</a>
+    </div>
+
+  </div>
+
+</body>
+</html>

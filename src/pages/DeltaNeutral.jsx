@@ -11,10 +11,34 @@ import Slider from "../components/Slider.jsx";
 import CapitalInput from "../components/CapitalInput.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import {
-  MARKETS, computeCarry, computeScenarios, computeLevStress,
+  computeCarry, computeScenarios, computeLevStress,
   getSignalLabel, closestScenarioIndex, computeDnRating,
-  computeMarketRec, computeAllRecs, getActionStyle,
+  computeMarketRec, getActionStyle,
 } from "../dnComputations.js";
+
+// ─── Markets V2 — crypto + commodities ──────────────────────────────────────
+
+const MARKETS_V2 = [
+  // Crypto — available on both Lighter and Hyperliquid
+  { coin: "ETH",  tier: 1, category: "crypto",    marketId: 0,   label: "Ethereum" },
+  { coin: "BTC",  tier: 1, category: "crypto",    marketId: 1,   label: "Bitcoin" },
+  { coin: "SOL",  tier: 2, category: "crypto",    marketId: 2,   label: "Solana" },
+  { coin: "XRP",  tier: 2, category: "crypto",    marketId: 7,   label: "XRP" },
+  { coin: "DOGE", tier: 3, category: "crypto",    marketId: 3,   label: "Dogecoin" },
+  { coin: "AVAX", tier: 2, category: "crypto",    marketId: 9,   label: "Avalanche" },
+  { coin: "LINK", tier: 2, category: "crypto",    marketId: 8,   label: "Chainlink" },
+  { coin: "SUI",  tier: 3, category: "crypto",    marketId: 16,  label: "Sui" },
+  { coin: "HYPE", tier: 3, category: "crypto",    marketId: 24,  label: "Hyperliquid" },
+  { coin: "WIF",  tier: 3, category: "crypto",    marketId: 5,   label: "dogwifhat" },
+  // Commodities — Lighter only
+  { coin: "XAU",  tier: 2, category: "commodity", marketId: 92,  label: "Gold" },
+  { coin: "XAG",  tier: 2, category: "commodity", marketId: 93,  label: "Silver" },
+  { coin: "WTI",  tier: 2, category: "commodity", marketId: 145, label: "Oil" },
+  { coin: "XCU",  tier: 3, category: "commodity", marketId: 136, label: "Copper" },
+];
+
+const CRYPTO_COINS = MARKETS_V2.filter(m => m.category === "crypto");
+const COMMODITY_COINS = MARKETS_V2.filter(m => m.category === "commodity");
 
 // ─── Signal display map ──────────────────────────────────────────────────────
 
@@ -31,6 +55,7 @@ const SIGNAL = {
 
 const DEFAULT_DN = {
   market:             "ETH",
+  exchange:           "lighter",
   capital:            10000,
   mode:               "standard",
   leverage:           2,
@@ -40,9 +65,27 @@ const DEFAULT_DN = {
   stressLiqThreshold: 85,
 };
 
-// ─── Hyperliquid API ─────────────────────────────────────────────────────────
+// ─── API fetchers ────────────────────────────────────────────────────────────
 
-async function fetchLiveRates() {
+// Lighter funding-rates returns 8-hour rates — divide by 8 to get hourly
+const LIGHTER_RATE_DIVISOR = 8;
+
+async function fetchLighterRates() {
+  const res = await fetch("https://mainnet.zklighter.elliot.ai/api/v1/funding-rates");
+  const data = await res.json();
+  const lighter = {};
+  const hl = {};
+  const symbols = new Set(MARKETS_V2.map(m => m.coin));
+  data.funding_rates.forEach(r => {
+    if (!symbols.has(r.symbol)) return;
+    const hourly = r.rate / LIGHTER_RATE_DIVISOR;
+    if (r.exchange === "lighter") lighter[r.symbol] = hourly;
+    if (r.exchange === "hyperliquid") hl[r.symbol] = hourly;
+  });
+  return { lighter, hyperliquid: hl };
+}
+
+async function fetchHLDirect() {
   const res = await fetch("https://api.hyperliquid.xyz/info", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -50,13 +93,36 @@ async function fetchLiveRates() {
   });
   const [meta, ctxs] = await res.json();
   const out = {};
+  const tracked = new Set(CRYPTO_COINS.map(m => m.coin));
   meta.universe.forEach((coin, i) => {
+    if (!tracked.has(coin.name)) return;
     const ctx = ctxs[i];
     out[coin.name] = {
-      funding: parseFloat(ctx.fundingRate ?? ctx.funding ?? 0),
+      funding: parseFloat(ctx.funding ?? 0),
       oi:      parseFloat(ctx.openInterest ?? 0),
       markPx:  parseFloat(ctx.markPx ?? ctx.midPx ?? 0),
     };
+  });
+  return out;
+}
+
+async function fetchCommodityDetails() {
+  const ids = COMMODITY_COINS.map(m => m.marketId);
+  const results = await Promise.all(
+    ids.map(id =>
+      fetch(`https://mainnet.zklighter.elliot.ai/api/v1/orderBookDetails?market_id=${id}`)
+        .then(r => r.json())
+    )
+  );
+  const out = {};
+  results.forEach(r => {
+    const d = r.order_book_details?.[0];
+    if (d) {
+      out[d.symbol] = {
+        markPx: d.last_trade_price,
+        oi:     d.open_interest,
+      };
+    }
   });
   return out;
 }
@@ -72,8 +138,28 @@ async function fetchHistory(coin) {
   return data.map(d => ({
     time:  d.time,
     label: new Date(d.time).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", hour12: false }).replace(",", ""),
-    rate:  parseFloat(d.fundingRate ?? d.funding ?? 0) * 100, // → %/hr
+    rate:  parseFloat(d.fundingRate ?? d.funding ?? 0) * 100,
   }));
+}
+
+// ─── Local computeAllRecs (uses MARKETS_V2) ────────────────────────────────
+
+function computeAllRecsLocal(ratesMap, cfg) {
+  return MARKETS_V2
+    .map(({ coin, tier }) => {
+      const fr = ratesMap[coin] ?? null;
+      if (fr === null) return null;
+      const rec   = computeMarketRec(fr, tier, cfg);
+      const apr   = fr * 24 * 365 * 100;
+      const carry = computeCarry(cfg, fr);
+      const score = rec.action === "EXIT"     ? apr - 200
+                  : rec.action === "WAIT"     ? Math.min(apr, 5)
+                  : rec.action === "CONSIDER" ? apr + (tier === 1 ? 3 : 0)
+                  :                             apr + (tier === 1 ? 6 : tier === 2 ? 3 : 0);
+      return { coin, tier, fr, apr, carry, ...rec, score };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score);
 }
 
 // ─── useIsMobile ─────────────────────────────────────────────────────────────
@@ -96,18 +182,49 @@ export default function DeltaNeutral() {
   const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
 
-  // API state (not URL-persisted — always fresh on load)
-  const [rates,       setRates]       = useState({});
+  // Multi-exchange rates: { lighter: { ETH: rate, ... }, hyperliquid: { ETH: rate, ... } }
+  const [rates,       setRates]       = useState({ lighter: {}, hyperliquid: {} });
+  const [hlDetails,   setHLDetails]   = useState({});
+  const [comDetails,  setComDetails]  = useState({});
   const [history,     setHistory]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [histLoading, setHistLoading] = useState(true);
   const [error,       setError]       = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
 
+  const exchange = cfg.exchange || "lighter";
+  const isCommodity = COMMODITY_COINS.some(m => m.coin === cfg.market);
+
+  // Active exchange rates for the selected exchange
+  // Crypto: HL direct API when "hyperliquid", Lighter API when "lighter"
+  // Commodities: always Lighter (only source)
+  const activeRates = useMemo(() => {
+    const merged = {};
+    CRYPTO_COINS.forEach(m => {
+      if (exchange === "hyperliquid") {
+        // Use HL direct API (authoritative, no aggregation lag)
+        merged[m.coin] = hlDetails[m.coin]?.funding ?? null;
+      } else {
+        // Use Lighter's own rates
+        merged[m.coin] = rates.lighter?.[m.coin] ?? null;
+      }
+    });
+    COMMODITY_COINS.forEach(m => {
+      merged[m.coin] = rates.lighter?.[m.coin] ?? null;
+    });
+    return merged;
+  }, [rates, hlDetails, exchange]);
+
   const loadRates = async () => {
     try {
-      const r = await fetchLiveRates();
-      setRates(r);
+      const [lr, hld, cd] = await Promise.all([
+        fetchLighterRates(),
+        fetchHLDirect(),
+        fetchCommodityDetails(),
+      ]);
+      setRates(lr);
+      setHLDetails(hld);
+      setComDetails(cd);
       setLastUpdated(new Date());
       setError(false);
     } catch {
@@ -118,6 +235,11 @@ export default function DeltaNeutral() {
   };
 
   const loadHistory = async coin => {
+    if (COMMODITY_COINS.some(m => m.coin === coin)) {
+      setHistory([]);
+      setHistLoading(false);
+      return;
+    }
     setHistLoading(true);
     try {
       setHistory(await fetchHistory(coin));
@@ -128,25 +250,29 @@ export default function DeltaNeutral() {
     }
   };
 
-  // Fetch on mount + auto-refresh rates every 5 min
   useEffect(() => {
     loadRates();
     const t = setInterval(loadRates, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Refetch history when market changes
   useEffect(() => { loadHistory(cfg.market); }, [cfg.market]);
 
   // ─── Derived values ────────────────────────────────────────────────────────
 
-  const marketData   = rates[cfg.market];
-  const currentRate  = marketData?.funding ?? 0;
-  const currentOI    = marketData?.oi ?? 0;
-  const currentMark  = marketData?.markPx ?? 0;
+  const currentRate  = activeRates[cfg.market] ?? 0;
+  const marketMeta   = MARKETS_V2.find(m => m.coin === cfg.market);
+  const marketTier   = marketMeta?.tier ?? 2;
+
+  // Market details — HL for crypto, Lighter for commodities
+  const marketDetail = isCommodity
+    ? comDetails[cfg.market]
+    : hlDetails[cfg.market];
+  const currentOI    = marketDetail?.oi ?? 0;
+  const currentMark  = marketDetail?.markPx ?? 0;
+
   const sigKey       = getSignalLabel(currentRate);
   const signal       = SIGNAL[sigKey] ?? SIGNAL["low"];
-  const marketTier   = MARKETS.find(m => m.coin === cfg.market)?.tier ?? 2;
 
   const carry     = useMemo(() => computeCarry(cfg, currentRate), [cfg, currentRate]);
   const scenarios = useMemo(() => computeScenarios(cfg), [cfg]);
@@ -154,14 +280,13 @@ export default function DeltaNeutral() {
   const levStress = useMemo(() => computeLevStress(cfg.stressCollateral, cfg.stressDebt, cfg.stressLiqThreshold), [cfg.stressCollateral, cfg.stressDebt, cfg.stressLiqThreshold]);
   const rating    = useMemo(() => computeDnRating(cfg, currentRate, marketTier), [cfg, currentRate, marketTier]);
 
-  // Downsample history to ~60 pts for chart perf
   const chartData = useMemo(() => {
     if (history.length <= 60) return history;
     const step = Math.ceil(history.length / 60);
     return history.filter((_, i) => i % step === 0);
   }, [history]);
 
-  const allRecs     = useMemo(() => computeAllRecs(rates, cfg), [rates, cfg]);
+  const allRecs     = useMemo(() => computeAllRecsLocal(activeRates, cfg), [activeRates, cfg]);
   const selectedRec = useMemo(() => computeMarketRec(currentRate, marketTier, cfg), [currentRate, marketTier, cfg]);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -182,9 +307,70 @@ export default function DeltaNeutral() {
     </div>
   );
 
-  const fmtRate = r => (r >= 0 ? "+" : "") + (r * 100).toFixed(4) + "%";
-  const fmtApr  = r => (r >= 0 ? "+" : "") + (r * 24 * 365 * 100).toFixed(1) + "%";
+  const fmtRate  = r => (r >= 0 ? "+" : "") + (r * 100).toFixed(4) + "%";
+  const fmtApr   = r => (r >= 0 ? "+" : "") + (r * 24 * 365 * 100).toFixed(1) + "%";
   const fmtDollar = v => (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(Math.abs(v) >= 100 ? 0 : 2);
+
+  const exchangeLabel = exchange === "lighter" ? "Lighter" : "Hyperliquid";
+  const marketDisplayName = marketMeta ? `${marketMeta.coin}${marketMeta.category === "commodity" ? " (" + marketMeta.label + ")" : ""}` : cfg.market;
+
+  // ─── Market tile renderer ─────────────────────────────────────────────────
+
+  const renderMarketTile = ({ coin, label, category }) => {
+    const exRate    = activeRates[coin] ?? null;
+    // Alt rate: show the OTHER exchange's rate for comparison
+    const altRate   = category === "crypto"
+      ? (exchange === "lighter" ? (hlDetails[coin]?.funding ?? null) : (rates.lighter?.[coin] ?? null))
+      : null;
+    const fr        = exRate;
+    const apr       = fr !== null ? fr * 24 * 365 * 100 : null;
+    const isPos     = fr !== null && fr >= 0;
+    const isSel     = cfg.market === coin;
+    const isCom     = category === "commodity";
+
+    return (
+      <div
+        key={coin}
+        onClick={() => setCfg(prev => ({ ...prev, market: coin }))}
+        style={{
+          background: isSel ? C.accent + "12" : C.bg,
+          border: "1px solid " + (isSel ? C.accent : C.border),
+          borderRadius: 2, padding: "10px 12px", cursor: "pointer", transition: "border-color 0.15s",
+        }}
+        onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = C.accent + "44"; }}
+        onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = C.border; }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: isSel ? C.accent : C.text }}>{coin}</span>
+            {isCom && <span style={{ fontSize: 8, color: C.amber, background: C.amber + "22", padding: "1px 4px", borderRadius: 2, fontWeight: 700 }}>{label}</span>}
+          </div>
+          {fr !== null && (
+            <span style={{ fontSize: 9, fontWeight: 700, color: isPos ? C.green : C.red, background: (isPos ? C.green : C.red) + "22", padding: "1px 5px", borderRadius: 2 }}>
+              {isPos ? "▲" : "▼"}
+            </span>
+          )}
+        </div>
+        {fr === null ? (
+          <div style={{ fontSize: 11, color: C.muted }}>{loading ? "···" : "—"}</div>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, fontWeight: 700, color: isPos ? C.green : C.red, fontFamily: "monospace" }}>
+              {fmtRate(fr)}/hr
+            </div>
+            <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
+              {(apr >= 0 ? "+" : "") + apr.toFixed(1)}% APR
+            </div>
+            {altRate !== null && !isCom && (
+              <div style={{ fontSize: 8, color: C.dim, marginTop: 3 }}>
+                {exchange === "lighter" ? "HL" : "LR"}: {fmtRate(altRate)}/hr
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -198,17 +384,19 @@ export default function DeltaNeutral() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.accent, boxShadow: "0 0 10px " + C.accent }} />
               <span style={{ fontSize: 11, color: C.accent, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                Hyperliquid · Delta Neutral Explorer
+                Lighter + Hyperliquid · Delta Neutral Explorer
               </span>
               <span style={{ fontSize: 10, color: loading ? C.amber : error ? C.red : C.muted }}>
                 · {updatedLabel}
               </span>
             </div>
             <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 900, margin: 0, letterSpacing: "-0.02em" }}>
-              {cfg.market} — Basis Trade Calculator
+              {marketDisplayName} — Basis Trade Calculator
             </h1>
             <p style={{ color: C.dim, fontSize: 12, margin: "5px 0 0" }}>
-              Long spot + short perp · Net delta zero · Earn funding, not direction
+              {isCommodity
+                ? "Long tokenized commodity + short perp · Net delta zero · Earn funding"
+                : "Long spot + short perp · Net delta zero · Earn funding, not direction"}
             </p>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -229,7 +417,7 @@ export default function DeltaNeutral() {
           <StatCard
             label={cfg.market + " Funding Rate"}
             value={loading ? "..." : fmtRate(currentRate) + "/hr"}
-            sub={"APR equiv: " + fmtApr(currentRate)}
+            sub={"APR equiv: " + fmtApr(currentRate) + " · " + exchangeLabel}
             color={currentRate >= 0 ? C.green : C.red}
           />
           <StatCard
@@ -263,7 +451,6 @@ export default function DeltaNeutral() {
             <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16, marginBottom: 16 }}>
               {sectionLabel("POSITION RECOMMENDATIONS — LIVE RATES + RISK PROFILE", C.accent)}
 
-              {/* Selected market action */}
               <div style={{
                 background: selStyle.bg, border: "1px solid " + selStyle.border,
                 borderRadius: 2, padding: "12px 16px", marginBottom: 14,
@@ -274,7 +461,7 @@ export default function DeltaNeutral() {
                     <span style={{ fontSize: 15, fontWeight: 900, color: selStyle.color, fontFamily: "monospace" }}>
                       {selectedRec.action}
                     </span>
-                    <span style={{ fontSize: 12, color: C.dim }}>— {cfg.market} · {cfg.mode === "leveraged" ? cfg.leverage + "× Leveraged" : "Standard 1×"}</span>
+                    <span style={{ fontSize: 12, color: C.dim }}>— {marketDisplayName} · {cfg.mode === "leveraged" ? cfg.leverage + "× Leveraged" : "Standard 1×"}</span>
                   </div>
                   <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.6 }}>{selectedRec.reason}</div>
                 </div>
@@ -285,136 +472,89 @@ export default function DeltaNeutral() {
                 </div>
               </div>
 
-              {/* All-market ranked table */}
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10 }}>
-
-                {/* ENTER */}
-                <div>
-                  <div style={{ fontSize: 10, color: C.green, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>
-                    ✓ Enter Now
+                {[
+                  { title: "✓ Enter Now", items: enters,    color: C.green,  emptyText: "No markets in entry zone" },
+                  { title: "~ Consider",  items: considers, color: C.accent, emptyText: "None" },
+                  { title: "✕ Avoid",     items: avoids,    color: C.red,    emptyText: "None currently negative" },
+                ].map(({ title, items, color, emptyText }) => (
+                  <div key={title}>
+                    <div style={{ fontSize: 10, color, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>{title}</div>
+                    {items.length === 0
+                      ? <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic" }}>{emptyText}</div>
+                      : items.map(r => {
+                        const isCom = COMMODITY_COINS.some(m => m.coin === r.coin);
+                        return (
+                          <div key={r.coin} onClick={() => setCfg(p => ({ ...p, market: r.coin }))}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 2, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? color + "18" : C.bg, border: "1px solid " + (cfg.market === r.coin ? color + "44" : C.border) }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{r.coin}</span>
+                              <span style={{ fontSize: 9, color: C.muted }}>T{r.tier}</span>
+                              {isCom && <span style={{ fontSize: 7, color: C.amber, fontWeight: 700 }}>COM</span>}
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color, fontFamily: "monospace" }}>{r.apr >= 0 ? "+" : ""}{r.apr.toFixed(1)}% APR</div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    }
                   </div>
-                  {enters.length === 0
-                    ? <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic" }}>No markets in entry zone</div>
-                    : enters.map(r => (
-                      <div key={r.coin} onClick={() => setCfg(p => ({ ...p, market: r.coin }))}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 2, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? C.green + "18" : C.bg, border: "1px solid " + (cfg.market === r.coin ? C.green + "44" : C.border) }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{r.coin}</span>
-                          <span style={{ fontSize: 9, color: C.muted }}>T{r.tier}</span>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: C.green, fontFamily: "monospace" }}>+{r.apr.toFixed(1)}% APR</div>
-                          <div style={{ fontSize: 9, color: C.muted }}>{rating.overall}</div>
-                        </div>
-                      </div>
-                    ))
-                  }
-                </div>
-
-                {/* CONSIDER */}
-                <div>
-                  <div style={{ fontSize: 10, color: C.accent, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>
-                    ~ Consider
-                  </div>
-                  {considers.length === 0
-                    ? <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic" }}>None</div>
-                    : considers.map(r => (
-                      <div key={r.coin} onClick={() => setCfg(p => ({ ...p, market: r.coin }))}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 2, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? C.accent + "12" : C.bg, border: "1px solid " + (cfg.market === r.coin ? C.accent + "44" : C.border) }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{r.coin}</span>
-                          <span style={{ fontSize: 9, color: C.muted }}>T{r.tier}</span>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, fontFamily: "monospace" }}>{r.apr >= 0 ? "+" : ""}{r.apr.toFixed(1)}% APR</div>
-                        </div>
-                      </div>
-                    ))
-                  }
-                </div>
-
-                {/* AVOID */}
-                <div>
-                  <div style={{ fontSize: 10, color: C.red, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>
-                    ✕ Avoid
-                  </div>
-                  {avoids.length === 0
-                    ? <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic" }}>None currently negative</div>
-                    : avoids.map(r => (
-                      <div key={r.coin} onClick={() => setCfg(p => ({ ...p, market: r.coin }))}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 2, marginBottom: 5, cursor: "pointer", background: cfg.market === r.coin ? C.red + "12" : C.bg, border: "1px solid " + (cfg.market === r.coin ? C.red + "44" : C.border) }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{r.coin}</span>
-                          <span style={{ fontSize: 9, color: C.muted }}>T{r.tier}</span>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: C.red, fontFamily: "monospace" }}>{r.apr.toFixed(1)}% APR</div>
-                        </div>
-                      </div>
-                    ))
-                  }
-                </div>
-
+                ))}
               </div>
             </div>
           );
         })()}
 
-        {/* Live market rates grid */}
+        {/* Live market rates grid — grouped by category */}
         <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16, marginBottom: 16 }}>
-          {sectionLabel("LIVE FUNDING RATES — HYPERLIQUID · CLICK TO SELECT MARKET", C.green)}
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, 1fr)", gap: 8 }}>
-            {MARKETS.map(({ coin }) => {
-              const r     = rates[coin];
-              const fr    = r?.funding ?? null;
-              const apr   = fr !== null ? fr * 24 * 365 * 100 : null;
-              const isPos = fr !== null && fr >= 0;
-              const isSel = cfg.market === coin;
-              return (
-                <div
-                  key={coin}
-                  onClick={() => setCfg(prev => ({ ...prev, market: coin }))}
-                  style={{
-                    background: isSel ? C.accent + "12" : C.bg,
-                    border: "1px solid " + (isSel ? C.accent : C.border),
-                    borderRadius: 2, padding: "10px 12px", cursor: "pointer", transition: "border-color 0.15s",
-                  }}
-                  onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = C.accent + "44"; }}
-                  onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = C.border; }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: isSel ? C.accent : C.text }}>{coin}</span>
-                    {fr !== null && (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: isPos ? C.green : C.red, background: (isPos ? C.green : C.red) + "22", padding: "1px 5px", borderRadius: 2 }}>
-                        {isPos ? "▲" : "▼"}
-                      </span>
-                    )}
-                  </div>
-                  {fr === null ? (
-                    <div style={{ fontSize: 11, color: C.muted }}>{loading ? "···" : "—"}</div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: isPos ? C.green : C.red, fontFamily: "monospace" }}>
-                        {fmtRate(fr)}/hr
-                      </div>
-                      <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
-                        {(apr >= 0 ? "+" : "") + apr.toFixed(1)}% APR
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
+          {sectionLabel("LIVE FUNDING RATES · CLICK TO SELECT MARKET", C.green)}
+
+          {/* Exchange selector */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <span style={{ fontSize: 10, color: C.dim, letterSpacing: "0.08em" }}>EXCHANGE:</span>
+            {["lighter", "hyperliquid"].map(ex => (
+              <button key={ex} onClick={() => setCfg(p => ({ ...p, exchange: ex }))} style={{
+                padding: "4px 12px", borderRadius: 2, fontSize: 10,
+                fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
+                background: exchange === ex ? C.green + "22" : C.bg,
+                border: "1px solid " + (exchange === ex ? C.green : C.border),
+                color: exchange === ex ? C.green : C.dim,
+                textTransform: "uppercase", letterSpacing: "0.05em",
+              }}>{ex === "lighter" ? "Lighter" : "Hyperliquid"}</button>
+            ))}
           </div>
+
+          {/* Crypto */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 9, color: C.dim, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700, marginBottom: 7, paddingBottom: 4, borderBottom: "1px solid " + C.border }}>
+              CRYPTO
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, 1fr)", gap: 8 }}>
+              {CRYPTO_COINS.map(renderMarketTile)}
+            </div>
+          </div>
+
+          {/* Commodities */}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 9, color: C.amber, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700, marginBottom: 7, paddingBottom: 4, borderBottom: "1px solid " + C.border }}>
+              COMMODITIES · LIGHTER
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 8 }}>
+              {COMMODITY_COINS.map(renderMarketTile)}
+            </div>
+          </div>
+
           {error && (
             <div style={{ fontSize: 11, color: C.red, textAlign: "center", marginTop: 12 }}>
-              ⚠ Could not reach Hyperliquid API. Check connection or refresh.
+              Could not reach exchange APIs. Check connection or refresh.
             </div>
           )}
-          {!loading && !error && currentOI > 0 && (
-            <div style={{ marginTop: 12, display: "flex", gap: 24, fontSize: 11, color: C.muted, borderTop: "1px solid " + C.border, paddingTop: 10 }}>
-              <span>{cfg.market} Open Interest: <span style={{ color: C.dim, fontFamily: "monospace" }}>${(currentOI / 1e6).toFixed(0)}M</span></span>
-              <span>Mark Price: <span style={{ color: C.dim, fontFamily: "monospace" }}>${currentMark.toLocaleString()}</span></span>
+          {!loading && !error && currentMark > 0 && (
+            <div style={{ marginTop: 12, display: "flex", gap: 24, fontSize: 11, color: C.muted, borderTop: "1px solid " + C.border, paddingTop: 10, flexWrap: "wrap" }}>
+              <span>{cfg.market} Open Interest: <span style={{ color: C.dim, fontFamily: "monospace" }}>{currentOI >= 1e6 ? "$" + (currentOI / 1e6).toFixed(0) + "M" : currentOI.toLocaleString()}</span></span>
+              <span>Price: <span style={{ color: C.dim, fontFamily: "monospace" }}>${currentMark.toLocaleString()}</span></span>
+              <span style={{ fontSize: 9, color: C.dim }}>via {isCommodity ? "Lighter" : (exchange === "lighter" ? "Lighter" : "Hyperliquid")}</span>
             </div>
           )}
         </div>
@@ -424,7 +564,6 @@ export default function DeltaNeutral() {
 
           {/* LEFT — Config */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
             <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
               {sectionLabel("CAPITAL", C.accent)}
               <CapitalInput value={cfg.capital} onChange={set("capital")} />
@@ -448,12 +587,12 @@ export default function DeltaNeutral() {
               </div>
               <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.7, fontStyle: "italic" }}>
                 {cfg.mode === "standard"
-                  ? "Spot long + perp short (1×). No borrow cost. Cleanest delta neutral structure."
+                  ? "Spot long + perp short (1x). No borrow cost. Cleanest delta neutral structure."
                   : "Leveraged spot + matched perp short. Higher yield but adds borrow cost and spot liquidation risk."}
               </div>
               {cfg.mode === "leveraged" && (
                 <div style={{ marginTop: 14, borderTop: "1px solid " + C.border, paddingTop: 14 }}>
-                  <Slider label="Leverage" value={cfg.leverage} onChange={set("leverage")} min={1.5} max={5} step={0.5} unit="×" />
+                  <Slider label="Leverage" value={cfg.leverage} onChange={set("leverage")} min={1.5} max={5} step={0.5} unit="x" />
                   <NumberInput label="Borrow Rate (APR %)" value={cfg.borrowRate} onChange={set("borrowRate")} hint="Annual cost of spot leverage" />
                 </div>
               )}
@@ -478,9 +617,14 @@ export default function DeltaNeutral() {
             {/* History chart */}
             <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: "18px 16px" }}>
               <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 16px", margin: "-18px -16px 16px -16px" }}>
-                {cfg.market} FUNDING RATE — LAST 7 DAYS · %/HR
+                {cfg.market} FUNDING RATE — {isCommodity ? "HISTORY UNAVAILABLE · LIGHTER" : "LAST 7 DAYS · %/HR · HYPERLIQUID"}
               </div>
-              {histLoading ? (
+              {isCommodity ? (
+                <div style={{ height: 240, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8, color: C.muted }}>
+                  <div style={{ fontSize: 12 }}>Funding history not yet available for Lighter commodity perps</div>
+                  <div style={{ fontSize: 10, color: C.dim }}>Current rate: {fmtRate(currentRate)}/hr ({fmtApr(currentRate)} APR)</div>
+                </div>
+              ) : histLoading ? (
                 <div style={{ height: 240, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, fontSize: 11 }}>
                   Loading history...
                 </div>
@@ -501,7 +645,7 @@ export default function DeltaNeutral() {
             {/* Carry breakdown */}
             <div style={{ background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 16 }}>
               <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 16px", margin: "-16px -16px 14px -16px" }}>
-                CARRY BREAKDOWN — ${cfg.capital.toLocaleString()} · {cfg.mode === "leveraged" ? cfg.leverage + "× LEVERAGED" : "STANDARD 1×"}
+                CARRY BREAKDOWN — ${cfg.capital.toLocaleString()} · {cfg.mode === "leveraged" ? cfg.leverage + "x LEVERAGED" : "STANDARD 1x"}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 10 }}>
                 {[
@@ -522,12 +666,12 @@ export default function DeltaNeutral() {
               {cfg.mode === "leveraged" && (
                 <div style={{ marginTop: 12, background: C.bg, borderRadius: 2, padding: "12px 14px", borderLeft: "3px solid " + C.amber }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: C.dim }}>Gross funding ({fmtApr(currentRate)} APR × {cfg.leverage}× position)</span>
+                    <span style={{ fontSize: 11, color: C.dim }}>Gross funding ({fmtApr(currentRate)} APR x {cfg.leverage}x position)</span>
                     <span style={{ fontSize: 11, color: C.green, fontFamily: "monospace", fontWeight: 700 }}>+{carry.annualFundingGross.toFixed(1)}% APR</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: C.dim }}>Borrow cost ({cfg.borrowRate}% × {(cfg.leverage - 1).toFixed(1)}× borrowed)</span>
-                    <span style={{ fontSize: 11, color: C.red, fontFamily: "monospace", fontWeight: 700 }}>−{carry.annualBorrowCost.toFixed(1)}% APR</span>
+                    <span style={{ fontSize: 11, color: C.dim }}>Borrow cost ({cfg.borrowRate}% x {(cfg.leverage - 1).toFixed(1)}x borrowed)</span>
+                    <span style={{ fontSize: 11, color: C.red, fontFamily: "monospace", fontWeight: 700 }}>-{carry.annualBorrowCost.toFixed(1)}% APR</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8, borderTop: "1px solid " + C.border }}>
                     <span style={{ fontSize: 12, color: C.text, fontWeight: 700 }}>Net carry</span>
@@ -544,7 +688,7 @@ export default function DeltaNeutral() {
         {/* Yield scenario table */}
         <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
           <div style={{ fontSize: 10, color: C.dim, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, background: "#151515", borderBottom: "1px solid " + C.border, padding: "5px 20px", margin: "-20px -20px 6px -20px" }}>
-            YIELD SCENARIOS — ${cfg.capital.toLocaleString()} · {cfg.mode === "leveraged" ? cfg.leverage + "× LEVERAGED" : "STANDARD 1×"}
+            YIELD SCENARIOS — ${cfg.capital.toLocaleString()} · {cfg.mode === "leveraged" ? cfg.leverage + "x LEVERAGED" : "STANDARD 1x"}
           </div>
           <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, fontStyle: "italic" }}>
             Theoretical projections at fixed rates. Real yield varies hourly. Current live rate row highlighted.
@@ -563,9 +707,6 @@ export default function DeltaNeutral() {
                   const isLive = i === liveIdx;
                   const sig    = SIGNAL[s.signal] ?? SIGNAL["low"];
                   const c      = s.carry;
-                  const dailyApy = c.capital > 0
-                    ? (c.dailyNet / cfg.capital * 100).toFixed(3)
-                    : "0.000";
                   return (
                     <tr key={i} style={{
                       borderBottom: "1px solid " + C.border,
@@ -623,10 +764,10 @@ export default function DeltaNeutral() {
           </div>
           <div style={{ marginTop: 14, display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px solid " + C.border, paddingTop: 14 }}>
             {[
-              { band: "Aaa–Aa", label: "Investment Grade · Minimal Risk",    color: C.green },
-              { band: "A–Baa",  label: "Investment Grade · Moderate Risk",   color: C.accent },
-              { band: "Ba–B",   label: "Speculative · Substantial Risk",     color: C.amber },
-              { band: "Caa–C",  label: "High Risk",                          color: C.red },
+              { band: "Aaa-Aa", label: "Investment Grade - Minimal Risk",    color: C.green },
+              { band: "A-Baa",  label: "Investment Grade - Moderate Risk",   color: C.accent },
+              { band: "Ba-B",   label: "Speculative - Substantial Risk",     color: C.amber },
+              { band: "Caa-C",  label: "High Risk",                          color: C.red },
             ].map(r => (
               <div key={r.band} style={{ display: "flex", alignItems: "center", gap: 6, background: C.bg, border: "1px solid " + C.border, borderRadius: 2, padding: "5px 10px", fontSize: 10 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: r.color }} />
@@ -642,7 +783,7 @@ export default function DeltaNeutral() {
           <div style={{ marginTop: 16, background: C.panel, border: "1px solid " + C.border, borderRadius: 2, padding: 20 }}>
             <div style={{ fontSize: 10, color: "#000", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 900, background: C.red, padding: "5px 20px", margin: "-20px -20px 6px -20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>SPOT LEG LIQUIDATION STRESS TEST</span>
-              <span style={{ fontSize: 9, fontWeight: 700 }}>How far can {cfg.market} drop?</span>
+              {!isMobile && <span style={{ fontSize: 9, fontWeight: 700 }}>How far can {cfg.market} drop?</span>}
             </div>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 16, fontStyle: "italic" }}>
               The perp hedge does NOT protect against spot leg liquidation — separate margin accounts, separate thresholds.
@@ -662,7 +803,7 @@ export default function DeltaNeutral() {
                   <div>
                     <div style={{ fontSize: 12, color: C.dim }}>Current Health Factor</div>
                     <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
-                      {liqDropPct > 0 ? `Liquidates at −${liqDropPct}% ${cfg.market} drop` : "Already at risk"}
+                      {liqDropPct > 0 ? `Liquidates at -${liqDropPct}% ${cfg.market} drop` : "Already at risk"}
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -670,7 +811,7 @@ export default function DeltaNeutral() {
                       {currentHF >= 999 ? "∞" : currentHF}
                     </span>
                     <span style={{ fontSize: 11, color: C.dim }}>
-                      {currentHF >= 1.7 ? "✓ Safe" : currentHF >= 1.4 ? "⚠ Caution" : "🚨 Danger"}
+                      {currentHF >= 1.7 ? "Safe" : currentHF >= 1.4 ? "Caution" : "Danger"}
                     </span>
                   </div>
                 </div>
@@ -691,9 +832,12 @@ export default function DeltaNeutral() {
                     const isDanger  = row.hf < 1.4;
                     const isCaution = row.hf < 1.7;
                     const col    = isLiq || isDanger ? C.red : isCaution ? C.amber : C.green;
-                    const status = isLiq ? "🚨 LIQUIDATED" : isDanger ? "🚨 Danger" : isCaution ? "⚠ Caution" : "✓ Safe";
+                    const status = isLiq ? "LIQUIDATED" : isDanger ? "Danger" : isCaution ? "Caution" : "Safe";
                     return (
-                      <tr key={row.drop} style={{ borderBottom: "1px solid " + C.border, background: row.drop === 0 ? "rgba(0,212,255,0.05)" : isLiq ? "rgba(255,77,109,0.05)" : "transparent" }}>
+                      <tr key={row.drop} style={{
+                        borderBottom: "1px solid " + C.border,
+                        background: row.drop === 0 ? "rgba(0,212,255,0.05)" : isLiq ? "rgba(255,77,109,0.05)" : "transparent",
+                      }}>
                         <td style={{ padding: "8px 12px", textAlign: "right", color: row.drop === 0 ? C.accent : C.red, fontFamily: "monospace", fontWeight: row.drop === 0 ? 700 : 400 }}>
                           {row.drop === 0 ? "Current (0%)" : row.drop + "%"}
                         </td>
@@ -717,7 +861,7 @@ export default function DeltaNeutral() {
                 const liqDropPct = cfg.stressDebt > 0 ? +((1 - cfg.stressDebt / (cfg.stressCollateral * liqThresh)) * 100).toFixed(2) : 0;
                 return (
                   <span style={{ color: C.red, fontFamily: "monospace", fontWeight: 800, fontSize: 14 }}>
-                    {liqDropPct > 0 ? `−${liqDropPct}% ${cfg.market} price drop` : "Already at risk"}
+                    {liqDropPct > 0 ? `-${liqDropPct}% ${cfg.market} price drop` : "Already at risk"}
                   </span>
                 );
               })()}
@@ -727,8 +871,8 @@ export default function DeltaNeutral() {
 
         {/* Footer */}
         <div style={{ marginTop: 24, textAlign: "center", fontSize: 10, color: C.dim, lineHeight: 1.8 }}>
-          <div>⚠ For educational purposes only. Not financial advice. DeFi carries significant risk including liquidation, smart contract risk, and funding rate reversals.</div>
-          <div style={{ marginTop: 4, color: C.muted }}>Live funding data: Hyperliquid · Settlement: every 1 hour · Auto-refreshes every 5 minutes</div>
+          <div>For educational purposes only. Not financial advice. DeFi carries significant risk including liquidation, smart contract risk, and funding rate reversals.</div>
+          <div style={{ marginTop: 4, color: C.muted }}>Live funding data: Lighter + Hyperliquid · Settlement: every 1 hour · Auto-refreshes every 5 minutes</div>
         </div>
 
       </div>
