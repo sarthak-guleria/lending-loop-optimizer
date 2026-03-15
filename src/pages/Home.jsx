@@ -42,6 +42,20 @@ const TOOLS = [
     ],
   },
   {
+    to:     "/lp-yield",
+    fkey:   "F4",
+    label:  "LP YIELD OPTIMIZER",
+    status: "LIVE",
+    color:  C.green,
+    desc:   "Model liquidity provider positions across V2 and V3 AMMs. Calculate impermanent loss, fee income, and net yield with live DeFiLlama data.",
+    detail: "V2 Classic · V3 Concentrated · IL Stress Test · Capital Efficiency · CSV Export · Shareable URLs",
+    meta:   [
+      { k: "MODES",    v: "V2 / V3" },
+      { k: "DATA",     v: "DeFiLlama" },
+      { k: "REFRESH",  v: "10 min" },
+    ],
+  },
+  {
     to:      "https://paycabal.xyz",
     fkey:    "↗",
     label:   "PAYCABAL",

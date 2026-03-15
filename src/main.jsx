@@ -5,6 +5,7 @@ import Shell from "./Shell.jsx";
 import Home from "./pages/Home.jsx";
 import App from "./App.jsx";
 import DeltaNeutral from "./pages/DeltaNeutral.jsx";
+import LPYield from "./pages/LPYield.jsx";
 
 const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: "loop", element: <App /> },
       { path: "delta-neutral", element: <DeltaNeutral /> },
+      { path: "lp-yield", element: <LPYield /> },
     ],
   },
 ]);

@@ -26,6 +26,7 @@ const FKEYS = [
   { key: "F1", label: "HOME",    to: "/" },
   { key: "F2", label: "LOOP",    to: "/loop" },
   { key: "F3", label: "DELTA-N", to: "/delta-neutral" },
+  { key: "F4", label: "LP-YIELD", to: "/lp-yield" },
 ];
 
 export default function Shell() {
